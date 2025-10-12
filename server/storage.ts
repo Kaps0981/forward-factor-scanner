@@ -1,38 +1,78 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { scans, opportunities, watchlists, type Scan, type InsertScan, type InsertOpportunity, type StoredOpportunity, type Watchlist, type InsertWatchlist } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Scan history
+  createScan(scan: InsertScan): Promise<Scan>;
+  getScan(id: number): Promise<Scan | undefined>;
+  getAllScans(limit?: number): Promise<Scan[]>;
+  
+  // Opportunities
+  createOpportunities(opps: InsertOpportunity[]): Promise<StoredOpportunity[]>;
+  getOpportunitiesByScan(scanId: number): Promise<StoredOpportunity[]>;
+  
+  // Watchlists
+  createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist>;
+  getWatchlists(): Promise<Watchlist[]>;
+  getWatchlist(id: number): Promise<Watchlist | undefined>;
+  updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>): Promise<Watchlist | undefined>;
+  deleteWatchlist(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  // Scan history methods
+  async createScan(scan: InsertScan): Promise<Scan> {
+    const [result] = await db.insert(scans).values(scan).returning();
+    return result;
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getScan(id: number): Promise<Scan | undefined> {
+    const [result] = await db.select().from(scans).where(eq(scans.id, id));
+    return result;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async getAllScans(limit: number = 50): Promise<Scan[]> {
+    return db.select().from(scans).orderBy(desc(scans.timestamp)).limit(limit);
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  // Opportunities methods
+  async createOpportunities(opps: InsertOpportunity[]): Promise<StoredOpportunity[]> {
+    if (opps.length === 0) return [];
+    return db.insert(opportunities).values(opps).returning();
+  }
+
+  async getOpportunitiesByScan(scanId: number): Promise<StoredOpportunity[]> {
+    return db.select().from(opportunities).where(eq(opportunities.scan_id, scanId));
+  }
+
+  // Watchlist methods
+  async createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist> {
+    const [result] = await db.insert(watchlists).values(watchlist).returning();
+    return result;
+  }
+
+  async getWatchlists(): Promise<Watchlist[]> {
+    return db.select().from(watchlists).orderBy(desc(watchlists.created_at));
+  }
+
+  async getWatchlist(id: number): Promise<Watchlist | undefined> {
+    const [result] = await db.select().from(watchlists).where(eq(watchlists.id, id));
+    return result;
+  }
+
+  async updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>): Promise<Watchlist | undefined> {
+    const [result] = await db
+      .update(watchlists)
+      .set({ ...watchlist, updated_at: new Date() })
+      .where(eq(watchlists.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteWatchlist(id: number): Promise<void> {
+    await db.delete(watchlists).where(eq(watchlists.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

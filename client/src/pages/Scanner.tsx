@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { type ScanResponse, type Opportunity } from "@shared/schema";
 import { ScanControls } from "@/components/ScanControls";
 import { SummaryCards } from "@/components/SummaryCards";
@@ -9,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Activity } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function Scanner() {
   const { toast } = useToast();
@@ -150,18 +152,31 @@ export default function Scanner() {
       <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-md bg-primary/10">
-                <Activity className="h-6 w-6 text-primary" />
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-md bg-primary/10">
+                  <Activity className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    Forward Factor Scanner
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    Options volatility mispricing detector
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  Forward Factor Scanner
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Options volatility mispricing detector
-                </p>
-              </div>
+              
+              <nav className="flex items-center gap-1">
+                <Badge variant="default" className="cursor-pointer" data-testid="link-scanner">
+                  Scanner
+                </Badge>
+                <Link href="/history">
+                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer" data-testid="link-history">
+                    History
+                  </Badge>
+                </Link>
+              </nav>
             </div>
             <ThemeToggle />
           </div>
