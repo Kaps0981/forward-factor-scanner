@@ -98,9 +98,24 @@ export const watchlists = pgTable("watchlists", {
   name: varchar("name", { length: 100 }).notNull(),
   tickers: jsonb("tickers").notNull(), // Array of ticker strings
   created_at: timestamp("created_at").defaultNow().notNull(),
-  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const insertWatchlistSchema = createInsertSchema(watchlists).omit({ id: true, created_at: true, updated_at: true });
+// Ticker validation schema - ensures tickers are valid uppercase stock symbols
+const tickerArraySchema = z.array(
+  z.string()
+    .min(1, "Ticker cannot be empty")
+    .max(5, "Ticker too long (max 5 characters)")
+    .transform((val) => val.trim().toUpperCase())
+    .refine((val) => /^[A-Z]+$/.test(val), {
+      message: "Ticker must contain only letters",
+    })
+);
+
+export const insertWatchlistSchema = createInsertSchema(watchlists)
+  .omit({ id: true, created_at: true })
+  .extend({
+    tickers: tickerArraySchema,
+  });
+
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
 export type Watchlist = typeof watchlists.$inferSelect;

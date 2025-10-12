@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import Scanner from "@/pages/Scanner";
 import History from "@/pages/History";
 import ScanDetail from "@/pages/ScanDetail";
+import Watchlists from "@/pages/Watchlists";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Scanner} />
       <Route path="/history" component={History} />
       <Route path="/history/:id" component={ScanDetail} />
+      <Route path="/watchlists" component={Watchlists} />
       <Route component={NotFound} />
     </Switch>
   );

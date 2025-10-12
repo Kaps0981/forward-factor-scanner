@@ -19,6 +19,7 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 ### Scanning
 - **Default Stock List**: 100+ curated quality mid-cap stocks across multiple sectors
 - **Custom Ticker Input**: Scan specific tickers of your choice
+- **Watchlist Management**: Save and manage ticker lists for quick scanning
 - **Configurable Filters**: Adjust Forward Factor range (-100% to +100%) and top N results
 - **Rate Limiting**: Automatic 12-second delay between tickers to comply with Polygon.io API limits
 
@@ -35,6 +36,8 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 - **Summary Cards**: Real-time analytics showing tickers scanned, opportunities found, average |FF|
 - **Progress Indicator**: Visual feedback during long scans with estimated progress
 - **CSV Export**: Download results for further analysis in Excel/Sheets
+- **Scan History**: View past scans with timestamps and detailed results
+- **Watchlists**: Create, manage, and quickly scan saved ticker lists
 
 ## Architecture
 
@@ -50,17 +53,21 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 
 #### Frontend (`client/src/`)
 - `pages/Scanner.tsx`: Main page with scan orchestration
-- `components/ScanControls.tsx`: Ticker input, filters, scan button
+- `pages/History.tsx`: Scan history listing page
+- `pages/ScanDetail.tsx`: Detailed view of past scan results
+- `pages/Watchlists.tsx`: Watchlist management page
+- `components/ScanControls.tsx`: Ticker input, filters, scan button with watchlist support
 - `components/ResultsTable.tsx`: Sortable table with BUY/SELL signals
 - `components/SummaryCards.tsx`: Analytics dashboard
 - `components/ScanProgress.tsx`: Loading state with progress bar
 - `components/ThemeToggle.tsx`: Dark/light mode switcher
 
 #### Backend (`server/`)
-- `routes.ts`: API endpoints (`/api/health`, `/api/scan`, `/api/default-tickers`)
+- `routes.ts`: API endpoints (scan, history, watchlists)
 - `scanner.ts`: Forward Factor calculation engine with ATM filtering
 - `polygon.ts`: Polygon.io API integration service
-- `storage.ts`: In-memory storage (not used for scanner, template artifact)
+- `storage.ts`: PostgreSQL storage layer with Drizzle ORM
+- `db.ts`: Database connection configuration
 
 #### Shared (`shared/`)
 - `schema.ts`: TypeScript types and Zod schemas for API contracts
@@ -98,6 +105,7 @@ Run Forward Factor scan
 // Response
 {
   "success": true,
+  "scan_id": 123,
   "opportunities": [
     {
       "ticker": "PLTR",
@@ -114,6 +122,96 @@ Run Forward Factor scan
   ],
   "total_tickers_scanned": 3,
   "total_opportunities_found": 1
+}
+```
+
+### GET `/api/scans`
+Get all scan history
+```json
+{
+  "scans": [
+    {
+      "id": 123,
+      "timestamp": "2025-10-12T10:30:00Z",
+      "tickers_scanned": 3,
+      "total_opportunities": 1,
+      "min_ff": -100,
+      "max_ff": 100,
+      "top_n": 20,
+      "tickers_list": ["PLTR", "ROKU", "NET"]
+    }
+  ]
+}
+```
+
+### GET `/api/scans/:id`
+Get scan details with opportunities
+```json
+{
+  "scan": {
+    "id": 123,
+    "timestamp": "2025-10-12T10:30:00Z",
+    "tickers_scanned": 3,
+    "total_opportunities": 1,
+    "min_ff": -100,
+    "max_ff": 100,
+    "top_n": 20,
+    "tickers_list": ["PLTR", "ROKU", "NET"]
+  },
+  "opportunities": [...]
+}
+```
+
+### GET `/api/watchlists`
+Get all watchlists
+```json
+{
+  "watchlists": [
+    {
+      "id": 1,
+      "name": "Tech Growth",
+      "tickers": ["PLTR", "SNOW", "NET", "DDOG"],
+      "created_at": "2025-10-12T10:00:00Z"
+    }
+  ]
+}
+```
+
+### POST `/api/watchlists`
+Create a new watchlist
+```json
+// Request
+{
+  "name": "Tech Growth",
+  "tickers": ["PLTR", "SNOW", "NET", "DDOG"]
+}
+
+// Response
+{
+  "watchlist": {
+    "id": 1,
+    "name": "Tech Growth",
+    "tickers": ["PLTR", "SNOW", "NET", "DDOG"],
+    "created_at": "2025-10-12T10:00:00Z"
+  }
+}
+```
+
+### PATCH `/api/watchlists/:id`
+Update a watchlist
+```json
+// Request
+{
+  "name": "Updated Name",
+  "tickers": ["PLTR", "SNOW"]
+}
+```
+
+### DELETE `/api/watchlists/:id`
+Delete a watchlist
+```json
+{
+  "success": true
 }
 ```
 
@@ -188,26 +286,27 @@ Application runs on `http://localhost:5000`
 
 - Real-time progress updates via Server-Sent Events (SSE)
 - Earnings calendar integration to flag event-driven term structures
-- Persistent scan history with PostgreSQL
-- User watchlists to save and monitor opportunities
 - Automated daily scans with email notifications
 - Live price updates via WebSocket during market hours
 
 ## Project Status
 
-**Current Version**: 1.0 (MVP Complete)
+**Current Version**: 2.0 (Phase 2 Complete)
 **Last Updated**: October 12, 2025
 
-All core MVP features are implemented and functional:
+All core features are implemented and functional:
 ✅ Polygon.io integration with rate limiting
 ✅ Forward Factor calculation engine
 ✅ ATM filtering (±10% threshold)
 ✅ Default ticker list (100+ stocks)
 ✅ Custom ticker input
+✅ Watchlist management (create, view, delete, quick scan)
 ✅ Configurable filters (FF range, top N)
 ✅ Sortable results table
 ✅ Summary analytics dashboard
 ✅ CSV export (always visible, disabled when no results)
+✅ PostgreSQL persistence with Drizzle ORM
+✅ Scan history with detailed views
 ✅ Dark/light mode
 ✅ Responsive design
 ✅ Loading states and robust error handling

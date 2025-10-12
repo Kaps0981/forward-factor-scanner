@@ -64,7 +64,7 @@ export class DatabaseStorage implements IStorage {
   async updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>): Promise<Watchlist | undefined> {
     const [result] = await db
       .update(watchlists)
-      .set({ ...watchlist, updated_at: new Date() })
+      .set(watchlist)
       .where(eq(watchlists.id, id))
       .returning();
     return result;

@@ -16,6 +16,11 @@ export default function Scanner() {
   const { toast } = useToast();
   const [scanResults, setScanResults] = useState<ScanResponse | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, ticker: "" });
+  
+  // Parse URL params for watchlist pre-fill
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlTickers = urlParams.get('tickers');
+  const urlWatchlistName = urlParams.get('watchlist');
 
   const scanMutation = useMutation({
     mutationFn: async (params: {
@@ -171,6 +176,11 @@ export default function Scanner() {
                 <Badge variant="default" className="cursor-pointer" data-testid="link-scanner">
                   Scanner
                 </Badge>
+                <Link href="/watchlists">
+                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer" data-testid="link-watchlists">
+                    Watchlists
+                  </Badge>
+                </Link>
                 <Link href="/history">
                   <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer" data-testid="link-history">
                     History
@@ -185,7 +195,19 @@ export default function Scanner() {
 
       <main className="container max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-6">
-          <ScanControls onScan={handleScan} isScanning={scanMutation.isPending} />
+          {urlWatchlistName && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+              <p className="text-sm text-primary">
+                <strong>Scanning watchlist:</strong> {urlWatchlistName}
+              </p>
+            </div>
+          )}
+          <ScanControls 
+            onScan={handleScan} 
+            isScanning={scanMutation.isPending} 
+            initialTickers={urlTickers || undefined}
+            watchlistName={urlWatchlistName || undefined}
+          />
 
           {scanMutation.isPending && (
             <ScanProgress

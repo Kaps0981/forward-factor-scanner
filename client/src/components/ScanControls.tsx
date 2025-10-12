@@ -15,11 +15,13 @@ interface ScanControlsProps {
     topN: number;
   }) => void;
   isScanning: boolean;
+  initialTickers?: string;
+  watchlistName?: string;
 }
 
-export function ScanControls({ onScan, isScanning }: ScanControlsProps) {
-  const [scanType, setScanType] = useState<"default" | "custom">("default");
-  const [customTickers, setCustomTickers] = useState("");
+export function ScanControls({ onScan, isScanning, initialTickers, watchlistName }: ScanControlsProps) {
+  const [scanType, setScanType] = useState<"default" | "custom">(initialTickers ? "custom" : "default");
+  const [customTickers, setCustomTickers] = useState(initialTickers || "");
   const [minFF, setMinFF] = useState(-100);
   const [maxFF, setMaxFF] = useState(100);
   const [topN, setTopN] = useState(20);

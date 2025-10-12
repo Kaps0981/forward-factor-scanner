@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { ForwardFactorScanner, DEFAULT_TICKERS } from "./scanner";
-import { scanRequestSchema } from "@shared/schema";
+import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
 import { storage } from "./storage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -53,6 +53,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error fetching scan:", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Failed to fetch scan",
+      });
+    }
+  });
+
+  // Watchlist endpoints
+  app.get("/api/watchlists", async (req, res) => {
+    try {
+      const watchlists = await storage.getWatchlists();
+      res.json({ watchlists });
+    } catch (error) {
+      console.error("Error fetching watchlists:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch watchlists",
+      });
+    }
+  });
+
+  app.post("/api/watchlists", async (req, res) => {
+    try {
+      const validationResult = insertWatchlistSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid watchlist data",
+          details: validationResult.error.errors,
+        });
+      }
+
+      const watchlist = await storage.createWatchlist(validationResult.data);
+      res.json({ watchlist });
+    } catch (error) {
+      console.error("Error creating watchlist:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to create watchlist",
+      });
+    }
+  });
+
+  app.patch("/api/watchlists/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const validationResult = insertWatchlistSchema.partial().safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid watchlist data",
+          details: validationResult.error.errors,
+        });
+      }
+      
+      const watchlist = await storage.updateWatchlist(id, validationResult.data);
+      
+      if (!watchlist) {
+        return res.status(404).json({ error: "Watchlist not found" });
+      }
+
+      res.json({ watchlist });
+    } catch (error) {
+      console.error("Error updating watchlist:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to update watchlist",
+      });
+    }
+  });
+
+  app.delete("/api/watchlists/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteWatchlist(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting watchlist:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to delete watchlist",
       });
     }
   });
