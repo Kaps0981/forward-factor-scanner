@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""
+Forward Factor Scanner Web Application
+Production Flask app that serves the React frontend and provides the API
+"""
+
+from flask import Flask, jsonify, request, send_from_directory
+from flask_cors import CORS
+import os
+from ff_scanner import ForwardFactorScanner, DEFAULT_TICKERS
+
+app = Flask(__name__, static_folder='static', static_url_path='')
+CORS(app)
+
+# Get API key from environment
+POLYGON_API_KEY = os.environ.get('POLYGON_API_KEY')
+
+@app.route('/')
+def index():
+    """Serve the React app"""
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files, but not API routes"""
+    if path.startswith('api/'):
+        return jsonify({'error': 'API route not found'}), 404
+    try:
+        return send_from_directory(app.static_folder, path)
+    except:
+        # If file not found, serve index.html for client-side routing
+        return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'ok',
+        'api_key_configured': bool(POLYGON_API_KEY)
+    })
+
+@app.route('/api/scan', methods=['POST'])
+def scan():
+    """
+    Run Forward Factor scan
+    
+    Request body:
+    {
+        "tickers": ["PLTR", "ROKU", "NET"],  // optional, uses default if not provided
+        "min_ff": -100,  // optional
+        "max_ff": 100,   // optional
+        "top_n": 20      // optional
+    }
+    """
+    if not POLYGON_API_KEY:
+        return jsonify({
+            'error': 'Polygon API key not configured'
+        }), 500
+    
+    try:
+        data = request.get_json() or {}
+        
+        # Get parameters from request
+        tickers = data.get('tickers', DEFAULT_TICKERS)
+        min_ff = data.get('min_ff', -100)
+        max_ff = data.get('max_ff', 100)
+        top_n = data.get('top_n', 20)
+        
+        # Limit number of tickers to prevent timeout
+        if len(tickers) > 30:
+            tickers = tickers[:30]
+        
+        # Create scanner and run
+        scanner = ForwardFactorScanner(POLYGON_API_KEY)
+        results = scanner.scan_multiple(tickers, min_ff=min_ff, max_ff=max_ff)
+        
+        # Format results for frontend
+        opportunities = []
+        for result in results:
+            for pair in result['pairs']:
+                opportunities.append({
+                    'ticker': result['ticker'],
+                    'forward_factor': round(pair['forward_factor'], 2),
+                    'signal': 'SELL' if pair['forward_factor'] > 0 else 'BUY',
+                    'front_date': str(pair['front_date']),
+                    'front_dte': pair['front_dte'],
+                    'front_iv': round(pair['front_iv'], 2),
+                    'back_date': str(pair['back_date']),
+                    'back_dte': pair['back_dte'],
+                    'back_iv': round(pair['back_iv'], 2),
+                    'forward_vol': round(pair['forward_vol'], 2)
+                })
+        
+        # Sort by absolute Forward Factor
+        opportunities.sort(key=lambda x: abs(x['forward_factor']), reverse=True)
+        
+        # Limit to top N
+        opportunities = opportunities[:top_n]
+        
+        return jsonify({
+            'success': True,
+            'opportunities': opportunities,
+            'total_tickers_scanned': len(tickers),
+            'total_opportunities_found': len(opportunities)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+@app.route('/api/default-tickers', methods=['GET'])
+def get_default_tickers():
+    """Get the default ticker list"""
+    return jsonify({
+        'tickers': DEFAULT_TICKERS
+    })
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080, debug=False)
+
