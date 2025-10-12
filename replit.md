@@ -207,7 +207,20 @@ All core MVP features are implemented and functional:
 ✅ Configurable filters (FF range, top N)
 ✅ Sortable results table
 ✅ Summary analytics dashboard
-✅ CSV export
+✅ CSV export (always visible, disabled when no results)
 ✅ Dark/light mode
 ✅ Responsive design
-✅ Loading states and error handling
+✅ Loading states and robust error handling
+✅ Progress indicator with interval cleanup
+✅ JSON response parsing with error handling
+
+## Recent Bug Fixes
+
+### Critical Fix (Oct 12, 2025)
+**Issue**: Scan results not updating in UI after backend completion
+**Root Cause**: `apiRequest()` returns a `Response` object, but code was treating it as parsed JSON data
+**Solution**: Added `await response.json()` to parse Response before use, with try/catch for JSON parse errors
+
+### UX Improvement (Oct 12, 2025)
+**Issue**: Export CSV button not visible when no results
+**Solution**: Changed ResultsTable to always show Export button, but disable it when `opportunities.length === 0`

@@ -56,14 +56,6 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
       <ChevronDown className="ml-1 h-3 w-3 inline" />;
   };
 
-  if (opportunities.length === 0) {
-    return (
-      <div className="border border-card-border rounded-lg p-12 text-center">
-        <p className="text-muted-foreground">No opportunities found. Run a scan to get started.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -72,6 +64,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           variant="outline"
           size="sm"
           onClick={onExportCSV}
+          disabled={opportunities.length === 0}
           data-testid="button-export-csv"
         >
           <Download className="mr-2 h-4 w-4" />
@@ -79,7 +72,12 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         </Button>
       </div>
 
-      <div className="border border-card-border rounded-lg overflow-hidden">
+      {opportunities.length === 0 ? (
+        <div className="border border-card-border rounded-lg p-12 text-center">
+          <p className="text-muted-foreground">No opportunities found. Run a scan to get started.</p>
+        </div>
+      ) : (
+        <div className="border border-card-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -185,6 +183,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           </Table>
         </div>
       </div>
+      )}
     </div>
   );
 }

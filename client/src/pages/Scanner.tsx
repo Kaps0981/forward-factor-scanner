@@ -49,21 +49,28 @@ export default function Scanner() {
       }, progressUpdateInterval);
 
       try {
-        const response = await apiRequest<ScanResponse>("POST", "/api/scan", {
+        const response = await apiRequest("POST", "/api/scan", {
           tickers: params.tickers,
           min_ff: params.minFF,
           max_ff: params.maxFF,
           top_n: params.topN,
         });
 
+        let data: ScanResponse;
+        try {
+          data = await response.json() as ScanResponse;
+        } catch (parseError) {
+          throw new Error("Failed to parse scan results. Please try again.");
+        }
+        
         clearInterval(progressSimulator);
         setScanProgress({ 
-          current: response.total_tickers_scanned, 
-          total: response.total_tickers_scanned, 
-          ticker: `Scan complete - analyzed ${response.total_tickers_scanned} tickers` 
+          current: data.total_tickers_scanned, 
+          total: data.total_tickers_scanned, 
+          ticker: `Scan complete - analyzed ${data.total_tickers_scanned} tickers` 
         });
 
-        return response;
+        return data;
       } catch (error) {
         clearInterval(progressSimulator);
         throw error;
