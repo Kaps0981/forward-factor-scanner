@@ -81,6 +81,13 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        // Trading-specific signal colors
+        signal: {
+          buy: "142 76% 36%",
+          "buy-fg": "0 0% 100%",
+          sell: "0 72% 51%",
+          "sell-fg": "0 0% 100%",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],
