@@ -72,7 +72,13 @@ export class ForwardFactorScanner {
       this.isATM(opt.strike_price, stockPrice) && opt.implied_volatility
     );
 
-    if (atmOptions.length === 0) return 0;
+    if (atmOptions.length === 0) {
+      // Debug: Check why no ATM options found
+      const optionsWithIV = options.filter(opt => opt.implied_volatility);
+      const atmOptionsNoIV = options.filter(opt => this.isATM(opt.strike_price, stockPrice));
+      console.log(`    ⚠️  No ATM options with IV. Total options: ${options.length}, With IV: ${optionsWithIV.length}, ATM (±10%): ${atmOptionsNoIV.length}`);
+      return 0;
+    }
 
     const avgIV = atmOptions.reduce((sum, opt) => sum + (opt.implied_volatility || 0), 0) / atmOptions.length;
     return avgIV * 100;
@@ -130,14 +136,21 @@ export class ForwardFactorScanner {
     try {
       const options = await this.polygon.getOptionsContracts(ticker);
       
+      console.log(`[${ticker}] Fetched ${options.length} options contracts`);
+      
       if (options.length === 0) {
+        console.log(`[${ticker}] No options data available`);
         return [];
       }
 
       const stockPrice = this.estimateStockPrice(options);
+      console.log(`[${ticker}] Estimated stock price: $${stockPrice.toFixed(2)}`);
+      
       const expirationGroups = this.groupByExpiration(options, stockPrice);
+      console.log(`[${ticker}] Found ${expirationGroups.length} valid expiration groups`);
 
       if (expirationGroups.length < 2) {
+        console.log(`[${ticker}] Need at least 2 expirations, only found ${expirationGroups.length}`);
         return [];
       }
 
@@ -154,7 +167,10 @@ export class ForwardFactorScanner {
           back.dte
         );
 
+        console.log(`[${ticker}] ${front.date} (${front.dte}d, ${front.atmIV.toFixed(1)}%) vs ${back.date} (${back.dte}d, ${back.atmIV.toFixed(1)}%) → FF: ${forwardFactor.toFixed(1)}%`);
+
         if (forwardFactor !== 0 && forwardFactor >= minFF && forwardFactor <= maxFF) {
+          console.log(`[${ticker}] ✓ Found opportunity: FF=${forwardFactor.toFixed(1)}%`);
           opportunities.push({
             ticker,
             forward_factor: Math.round(forwardFactor * 100) / 100,
@@ -169,6 +185,8 @@ export class ForwardFactorScanner {
           });
         }
       }
+      
+      console.log(`[${ticker}] Total opportunities found: ${opportunities.length}`);
 
       return opportunities;
     } catch (error) {

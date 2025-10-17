@@ -14,10 +14,34 @@ export interface PolygonOption {
   };
 }
 
+export interface PolygonSnapshotOption {
+  details?: {
+    strike_price?: number;
+    expiration_date?: string;
+    contract_type?: string;
+  };
+  greeks?: {
+    delta?: number;
+    gamma?: number;
+    theta?: number;
+    vega?: number;
+  };
+  implied_volatility?: number;
+  last_quote?: {
+    bid?: number;
+    ask?: number;
+  };
+}
+
 export interface PolygonOptionsResponse {
   results?: PolygonOption[];
   status: string;
   next_url?: string;
+}
+
+export interface PolygonSnapshotResponse {
+  results?: PolygonSnapshotOption[];
+  status: string;
 }
 
 export class PolygonService {
@@ -32,17 +56,29 @@ export class PolygonService {
 
   async getOptionsContracts(ticker: string): Promise<PolygonOption[]> {
     try {
-      const url = `${POLYGON_BASE_URL}/v3/reference/options/contracts`;
-      const response = await axios.get<PolygonOptionsResponse>(url, {
+      // Use snapshot endpoint to get options with IV and Greeks data
+      const url = `${POLYGON_BASE_URL}/v3/snapshot/options/${ticker}`;
+      const response = await axios.get<PolygonSnapshotResponse>(url, {
         params: {
-          underlying_ticker: ticker,
-          limit: 250,
           apiKey: this.apiKey,
         },
         timeout: 30000,
       });
 
-      return response.data.results || [];
+      // Transform snapshot data to PolygonOption format
+      const options: PolygonOption[] = (response.data.results || [])
+        .filter(opt => opt.details?.strike_price && opt.details?.expiration_date)
+        .map(opt => ({
+          strike_price: opt.details!.strike_price!,
+          expiration_date: opt.details!.expiration_date!,
+          implied_volatility: opt.implied_volatility,
+          delta: opt.greeks?.delta,
+          contract_type: (opt.details!.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
+        }));
+
+      console.log(`Fetched ${options.length} options for ${ticker}, ${options.filter(o => o.implied_volatility).length} with IV`);
+      
+      return options;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
