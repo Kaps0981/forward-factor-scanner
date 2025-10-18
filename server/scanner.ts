@@ -107,7 +107,7 @@ export class ForwardFactorScanner {
     liquidityScore: number;
   } {
     // Find ATM strike closest to stock price
-    const uniqueStrikes = [...new Set(options.map(opt => opt.strike_price))];
+    const uniqueStrikes = Array.from(new Set(options.map(opt => opt.strike_price)));
     const atmStrike = uniqueStrikes.reduce((prev, curr) => 
       Math.abs(curr - stockPrice) < Math.abs(prev - stockPrice) ? curr : prev
     );
