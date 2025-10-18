@@ -28,7 +28,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [minFF, setMinFF] = useState(-100);
   const [maxFF, setMaxFF] = useState(100);
   const [topN, setTopN] = useState(20);
-  const [minOpenInterest, setMinOpenInterest] = useState(0);
+  const [minOpenInterest, setMinOpenInterest] = useState(200);
   const [enableEmailAlerts, setEnableEmailAlerts] = useState(false);
 
   const handleScan = () => {

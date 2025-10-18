@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const minFF = min_ff ?? -100;
       const maxFF = max_ff ?? 100;
       const topN = top_n ?? 20;
-      const minOI = min_open_interest ?? 50; // Default to 50 for moderate liquidity
+      const minOI = min_open_interest ?? 200; // Default to 200 for high liquidity
 
       const scanner = new ForwardFactorScanner(POLYGON_API_KEY);
       const polygonService = new PolygonService(POLYGON_API_KEY);
