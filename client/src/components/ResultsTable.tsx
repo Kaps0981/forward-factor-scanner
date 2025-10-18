@@ -155,13 +155,13 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         </div>
       ) : (
         <div className="border border-card-border rounded-lg overflow-hidden">
-        <div className="overflow-auto max-h-[600px] relative">
-          <Table>
-            <TableHeader className="sticky top-0 z-20 bg-background">
+        <div className="relative max-h-[600px] overflow-auto">
+          <Table className="relative">
+            <TableHeader className="sticky top-0 z-40 bg-background shadow-sm">
               <TableRow className="hover:bg-transparent border-b border-card-border">
-                <TableHead className="w-8 sticky left-0 z-30 bg-background border-r border-card-border"></TableHead>
+                <TableHead className="w-8 sticky left-0 z-50 bg-background border-r border-card-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"></TableHead>
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-30 bg-background"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-50 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
@@ -251,7 +251,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       className="hover-elevate"
                       data-testid={`row-opportunity-${index}`}
                     >
-                      <TableCell className="w-8 sticky left-0 z-10 bg-background border-r border-card-border">
+                      <TableCell className="w-8 sticky left-0 z-20 bg-background border-r border-card-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
                         {hasWarnings && (
                           <Button
                             variant="ghost"
@@ -268,7 +268,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium tracking-wide sticky left-8 z-10 bg-background" data-testid={`text-ticker-${index}`}>
+                      <TableCell className="font-medium tracking-wide sticky left-8 z-20 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" data-testid={`text-ticker-${index}`}>
                         {opp.ticker}
                       </TableCell>
                       <TableCell 

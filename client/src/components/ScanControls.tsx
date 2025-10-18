@@ -65,7 +65,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               
               <TabsContent value="default" className="mt-0">
                 <p className="text-sm text-muted-foreground">
-                  Scan 100+ curated quality mid-cap stocks across multiple sectors
+                  Scan 100 curated quality mid-cap stocks across multiple sectors
                 </p>
               </TabsContent>
               

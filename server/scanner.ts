@@ -15,29 +15,27 @@ interface ExpirationGroup {
 }
 
 export const DEFAULT_TICKERS = [
-  // High-Growth Tech
+  // High-Growth Tech (20)
   'PLTR', 'SNOW', 'DDOG', 'NET', 'CRWD', 'ZS', 'OKTA', 'PANW', 'MDB', 'HUBS',
-  'TEAM', 'ZM', 'DOCU', 'TWLO', 'ESTC',
-  // Fintech & Payments
-  'SQ', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'NU', 'UPST',
-  // E-commerce & Consumer
-  'SHOP', 'ETSY', 'W', 'CHWY', 'DASH', 'ABNB', 'UBER', 'LYFT',
-  // Semiconductors
-  'ARM', 'MRVL', 'MPWR', 'ON', 'SWKS', 'QRVO',
-  // Healthcare & Biotech
-  'DXCM', 'ISRG', 'ILMN', 'VRTX', 'REGN', 'BIIB', 'MRNA',
-  // Energy & Materials
-  'FSLR', 'ENPH', 'RUN', 'PLUG', 'DVN', 'FANG', 'MRO', 'OXY',
-  // Industrial & Defense
-  'RIVN', 'LCID', 'NIO', 'XPEV', 'BA', 'LMT', 'RTX', 'GD',
-  // Media & Entertainment
-  'ROKU', 'SPOT', 'RBLX', 'U', 'PINS', 'SNAP',
-  // Retail & Consumer Staples
-  'LULU', 'NKE', 'SBUX', 'CMG', 'MCD', 'YUM',
-  // REITs & Real Estate
-  'AMT', 'CCI', 'EQIX', 'DLR', 'PSA',
-  // Value/Cyclical
-  'F', 'GM', 'AAL', 'UAL', 'DAL', 'CCL', 'NCLH', 'RCL', 'X', 'CLF', 'NUE', 'STLD'
+  'TEAM', 'ZM', 'DOCU', 'TWLO', 'ESTC', 'PATH', 'BILL', 'GTLB', 'S', 'CFLT',
+  // Fintech & Payments (10)
+  'SQ', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'NU', 'UPST', 'PYPL', 'V', 'MA',
+  // E-commerce & Consumer (12)
+  'SHOP', 'ETSY', 'W', 'CHWY', 'DASH', 'ABNB', 'UBER', 'LYFT', 'CAVA', 'BROS', 'DPZ', 'WING',
+  // Semiconductors (10)
+  'ARM', 'MRVL', 'MPWR', 'ON', 'SWKS', 'QRVO', 'WOLF', 'SLAB', 'SMCI', 'ANET',
+  // Healthcare & Biotech (10)
+  'DXCM', 'ISRG', 'ILMN', 'VRTX', 'REGN', 'BIIB', 'MRNA', 'TDOC', 'VEEV', 'ALGN',
+  // Energy & Materials (10)
+  'FSLR', 'ENPH', 'RUN', 'PLUG', 'DVN', 'FANG', 'MRO', 'OXY', 'AR', 'CF',
+  // Industrial & Defense (10)
+  'RIVN', 'LCID', 'NIO', 'XPEV', 'BA', 'LMT', 'RTX', 'GD', 'NOC', 'HWM',
+  // Media & Entertainment (8)
+  'ROKU', 'SPOT', 'RBLX', 'U', 'PINS', 'SNAP', 'TTWO', 'EA',
+  // Retail & Consumer (5)
+  'LULU', 'NKE', 'SBUX', 'CMG', 'MCD',
+  // REITs & Real Estate (5)
+  'AMT', 'CCI', 'EQIX', 'DLR', 'PSA'
 ];
 
 export class ForwardFactorScanner {
