@@ -56,29 +56,49 @@ export class PolygonService {
 
   async getOptionsContracts(ticker: string): Promise<PolygonOption[]> {
     try {
-      // Use snapshot endpoint to get options with IV and Greeks data
-      const url = `${POLYGON_BASE_URL}/v3/snapshot/options/${ticker}`;
-      const response = await axios.get<PolygonSnapshotResponse>(url, {
-        params: {
-          apiKey: this.apiKey,
-        },
-        timeout: 30000,
-      });
+      const allOptions: PolygonOption[] = [];
+      let nextUrl: string | undefined = `${POLYGON_BASE_URL}/v3/snapshot/options/${ticker}`;
+      let pageCount = 0;
+      const maxPages = 50; // Limit to prevent infinite loops (~500 options max)
 
-      // Transform snapshot data to PolygonOption format
-      const options: PolygonOption[] = (response.data.results || [])
-        .filter(opt => opt.details?.strike_price && opt.details?.expiration_date)
-        .map(opt => ({
-          strike_price: opt.details!.strike_price!,
-          expiration_date: opt.details!.expiration_date!,
-          implied_volatility: opt.implied_volatility,
-          delta: opt.greeks?.delta,
-          contract_type: (opt.details!.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
-        }));
+      // Paginate through all options
+      while (nextUrl && pageCount < maxPages) {
+        // Add API key to next_url for pagination
+        const requestUrl = pageCount === 0 
+          ? nextUrl 
+          : (nextUrl.includes('?') ? `${nextUrl}&apiKey=${this.apiKey}` : `${nextUrl}?apiKey=${this.apiKey}`);
 
-      console.log(`Fetched ${options.length} options for ${ticker}, ${options.filter(o => o.implied_volatility).length} with IV`);
+        const response = await axios.get<PolygonSnapshotResponse>(requestUrl, {
+          params: pageCount === 0 ? {
+            apiKey: this.apiKey,
+            limit: 250, // Max per page
+          } : {},
+          timeout: 30000,
+        });
+
+        const pageOptions = (response.data.results || [])
+          .filter(opt => opt.details?.strike_price && opt.details?.expiration_date)
+          .map(opt => ({
+            strike_price: opt.details!.strike_price!,
+            expiration_date: opt.details!.expiration_date!,
+            implied_volatility: opt.implied_volatility,
+            delta: opt.greeks?.delta,
+            contract_type: (opt.details!.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
+          }));
+
+        allOptions.push(...pageOptions);
+        nextUrl = response.data.next_url;
+        pageCount++;
+
+        // Small delay between pagination requests
+        if (nextUrl) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      console.log(`Fetched ${allOptions.length} options for ${ticker} (${pageCount} pages), ${allOptions.filter(o => o.implied_volatility).length} with IV`);
       
-      return options;
+      return allOptions;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 429) {
