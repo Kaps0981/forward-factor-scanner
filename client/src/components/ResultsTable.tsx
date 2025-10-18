@@ -95,6 +95,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                 >
                   Ticker <SortIcon field="ticker" />
                 </TableHead>
+                <TableHead className="text-center font-semibold">Quality</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold"
                   onClick={() => handleSort('forward_factor')}

@@ -5,6 +5,7 @@ import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { PolygonService } from "./polygon";
 import { sendHighFFAlert } from "./email";
+import { analyzeOpportunityQuality, generateTradingThesis } from "./qualityFilters";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -183,13 +184,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const earningsMap = new Map(earningsChecks.map(e => [e.ticker, e.hasEarnings]));
       
-      // Add earnings flag to opportunities
-      const opportunitiesWithEarnings = filteredOpportunities.map(opp => ({
-        ...opp,
-        has_earnings_soon: earningsMap.get(opp.ticker) || false,
-      }));
+      // Add earnings flag and quality analysis to opportunities
+      const opportunitiesWithAnalysis = filteredOpportunities.map(opp => {
+        const oppWithEarnings = {
+          ...opp,
+          has_earnings_soon: earningsMap.get(opp.ticker) || false,
+        };
+        
+        // Run quality analysis
+        const analysis = analyzeOpportunityQuality(oppWithEarnings);
+        
+        return {
+          ...oppWithEarnings,
+          quality_score: analysis.rating,
+          is_quality: analysis.isQuality,
+          probability: analysis.probability,
+          risk_reward: analysis.riskReward,
+          rejection_reasons: analysis.rejectionReasons,
+        };
+      });
 
-      const limitedOpportunities = opportunitiesWithEarnings.slice(0, topN);
+      // Sort by quality first, then by |FF|
+      const sortedOpportunities = opportunitiesWithAnalysis.sort((a, b) => {
+        // Quality setups first
+        if (a.is_quality !== b.is_quality) {
+          return a.is_quality ? -1 : 1;
+        }
+        // Then by quality score
+        if (a.quality_score !== b.quality_score) {
+          return b.quality_score - a.quality_score;
+        }
+        // Finally by |FF|
+        return Math.abs(b.forward_factor) - Math.abs(a.forward_factor);
+      });
+
+      const limitedOpportunities = sortedOpportunities.slice(0, topN);
 
       // Save scan to database
       const scan = await storage.createScan({
