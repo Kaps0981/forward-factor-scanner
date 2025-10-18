@@ -6,6 +6,8 @@ import { storage } from "./storage";
 import { PolygonService } from "./polygon";
 import { sendHighFFAlert } from "./email";
 import { analyzeOpportunityQuality, generateTradingThesis } from "./qualityFilters";
+import { generateHTMLReport, generateMarkdownReport } from "./reportGenerator";
+import { TradingCalendar } from "./tradingCalendar";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -129,6 +131,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error deleting watchlist:", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Failed to delete watchlist",
+      });
+    }
+  });
+
+  // Market status endpoint
+  app.get("/api/market-status", (req, res) => {
+    const status = TradingCalendar.getMarketStatus();
+    res.json(status);
+  });
+
+  // Generate report for a specific scan
+  app.get("/api/scans/:id/report", async (req, res) => {
+    try {
+      const scanId = parseInt(req.params.id);
+      const format = req.query.format === 'markdown' ? 'markdown' : 'html';
+      
+      // Get scan data
+      const scan = await storage.getScan(scanId);
+      if (!scan) {
+        return res.status(404).json({ error: "Scan not found" });
+      }
+      
+      // Get opportunities for this scan
+      const opportunities = await storage.getOpportunitiesByScan(scanId);
+      
+      // Re-run quality analysis for the report
+      const analyzedOpportunities = opportunities.map(storedOpp => {
+        const opp: any = {
+          ticker: storedOpp.ticker,
+          forward_factor: storedOpp.forward_factor,
+          signal: storedOpp.signal as 'BUY' | 'SELL',
+          front_date: storedOpp.front_date,
+          front_dte: storedOpp.front_dte,
+          front_iv: storedOpp.front_iv,
+          back_date: storedOpp.back_date,
+          back_dte: storedOpp.back_dte,
+          back_iv: storedOpp.back_iv,
+          forward_vol: storedOpp.forward_vol,
+          avg_open_interest: storedOpp.avg_open_interest,
+          has_earnings_soon: storedOpp.has_earnings_soon === 'true',
+        };
+        
+        const analysis = analyzeOpportunityQuality(opp);
+        return {
+          ...opp,
+          quality_score: analysis.rating,
+          is_quality: analysis.isQuality,
+          probability: analysis.probability,
+          risk_reward: analysis.riskReward,
+          rejection_reasons: analysis.rejectionReasons,
+        };
+      });
+      
+      // Separate quality from rejected
+      const qualitySetups = analyzedOpportunities.filter((opp: any) => opp.is_quality === true);
+      const rejectedSetups = analyzedOpportunities.filter((opp: any) => opp.is_quality === false);
+      
+      // Generate report
+      const report = format === 'markdown'
+        ? generateMarkdownReport({ scan, opportunities, qualitySetups, rejectedSetups })
+        : generateHTMLReport({ scan, opportunities, qualitySetups, rejectedSetups });
+      
+      // Set appropriate content type
+      const contentType = format === 'markdown' ? 'text/markdown' : 'text/html';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `inline; filename="scan_${scanId}_report.${format === 'markdown' ? 'md' : 'html'}"`);
+      
+      res.send(report);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to generate report",
       });
     }
   });
