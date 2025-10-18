@@ -2,7 +2,15 @@ import { useState, useMemo } from "react";
 import { type Opportunity } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Download, AlertTriangle } from "lucide-react";
+import { 
+  ChevronUp, 
+  ChevronDown, 
+  Download, 
+  AlertTriangle, 
+  X, 
+  ChevronRight,
+  Info
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -17,18 +25,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface ResultsTableProps {
   opportunities: Opportunity[];
   onExportCSV: () => void;
 }
 
-type SortField = 'ticker' | 'forward_factor' | 'front_dte' | 'back_dte';
+type SortField = 'ticker' | 'forward_factor' | 'front_dte' | 'back_dte' | 'min_liquidity';
 type SortDirection = 'asc' | 'desc';
 
 export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) {
   const [sortField, setSortField] = useState<SortField>('forward_factor');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [showWarning, setShowWarning] = useState(true);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -41,12 +60,15 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
 
   const sortedOpportunities = useMemo(() => {
     return [...opportunities].sort((a, b) => {
-      let aVal = a[sortField];
-      let bVal = b[sortField];
+      let aVal: any = a[sortField as keyof Opportunity];
+      let bVal: any = b[sortField as keyof Opportunity];
 
       if (sortField === 'forward_factor') {
         aVal = Math.abs(a.forward_factor);
         bVal = Math.abs(b.forward_factor);
+      } else if (sortField === 'min_liquidity') {
+        aVal = Math.min(a.straddle_oi || 0, a.back_straddle_oi || 0);
+        bVal = Math.min(b.straddle_oi || 0, b.back_straddle_oi || 0);
       }
 
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
@@ -62,8 +84,45 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
       <ChevronDown className="ml-1 h-3 w-3 inline" />;
   };
 
+  const getLiquidityColor = (oi: number | undefined) => {
+    if (!oi) return 'text-muted-foreground';
+    if (oi >= 250) return 'text-green-600 dark:text-green-400';
+    if (oi >= 100) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
+  };
+
+  const toggleRowExpansion = (rowId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rowId)) {
+        newSet.delete(rowId);
+      } else {
+        newSet.add(rowId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-4">
+      {showWarning && (
+        <Alert className="bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800 relative">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200 font-medium pr-8">
+            ⚠️ CRITICAL: Always verify exact strike liquidity before trading. Back month is often the bottleneck.
+          </AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-2 h-6 w-6 rounded-sm opacity-70 hover:opacity-100"
+            onClick={() => setShowWarning(false)}
+            data-testid="button-dismiss-warning"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Scan Results</h2>
         <Button
@@ -88,6 +147,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           <Table>
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow className="hover:bg-transparent border-b border-card-border">
+                <TableHead className="w-8"></TableHead>
                 <TableHead 
                   className="cursor-pointer hover-elevate font-semibold sticky left-0 z-30 bg-background"
                   onClick={() => handleSort('ticker')}
@@ -95,7 +155,6 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                 >
                   Ticker <SortIcon field="ticker" />
                 </TableHead>
-                <TableHead className="text-center font-semibold">Quality</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold"
                   onClick={() => handleSort('forward_factor')}
@@ -104,6 +163,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Forward Factor <SortIcon field="forward_factor" />
                 </TableHead>
                 <TableHead className="text-center font-semibold">Signal</TableHead>
+                <TableHead className="text-right font-semibold">Position Size</TableHead>
                 <TableHead className="font-semibold">Front Contract</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold"
@@ -113,6 +173,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Front DTE <SortIcon field="front_dte" />
                 </TableHead>
                 <TableHead className="text-right font-semibold">Front IV</TableHead>
+                <TableHead className="text-right font-semibold">Front OI</TableHead>
                 <TableHead className="font-semibold">Back Contract</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold"
@@ -122,89 +183,213 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Back DTE <SortIcon field="back_dte" />
                 </TableHead>
                 <TableHead className="text-right font-semibold">Back IV</TableHead>
+                <TableHead className="text-right font-semibold">Back Month OI</TableHead>
+                <TableHead 
+                  className="text-right cursor-pointer hover-elevate font-semibold"
+                  onClick={() => handleSort('min_liquidity')}
+                  data-testid="header-min-liquidity"
+                >
+                  Min Liquidity <SortIcon field="min_liquidity" />
+                </TableHead>
                 <TableHead className="text-right font-semibold">Forward Vol</TableHead>
-                <TableHead className="text-right font-semibold">Avg OI</TableHead>
                 <TableHead className="text-center font-semibold">Alerts</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedOpportunities.map((opp, index) => (
-                <TableRow 
-                  key={`${opp.ticker}-${opp.front_date}-${index}`}
-                  className="hover-elevate"
-                  data-testid={`row-opportunity-${index}`}
-                >
-                  <TableCell className="font-medium tracking-wide sticky left-0 z-10 bg-background" data-testid={`text-ticker-${index}`}>
-                    {opp.ticker}
-                  </TableCell>
-                  <TableCell 
-                    className="text-right font-mono font-semibold tabular-nums"
-                    style={{ color: opp.forward_factor < 0 ? 'hsl(142 76% 36%)' : 'hsl(0 72% 51%)' }}
-                    data-testid={`text-ff-${index}`}
-                  >
-                    {opp.forward_factor > 0 ? '+' : ''}{opp.forward_factor}%
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge
-                      variant="outline"
-                      className={
-                        opp.signal === 'BUY'
-                          ? 'bg-chart-1/10 text-chart-1 border-chart-1/20'
-                          : 'bg-chart-3/10 text-chart-3 border-chart-3/20'
-                      }
-                      data-testid={`badge-signal-${index}`}
+              {sortedOpportunities.map((opp, index) => {
+                const rowId = `${opp.ticker}-${opp.front_date}-${index}`;
+                const minLiquidity = Math.min(opp.straddle_oi || 0, opp.back_straddle_oi || 0);
+                const liquidityDifference = opp.straddle_oi && opp.back_straddle_oi 
+                  ? ((opp.straddle_oi - opp.back_straddle_oi) / opp.straddle_oi) * 100
+                  : 0;
+                const hasSignificantDifference = Math.abs(liquidityDifference) > 50;
+                const hasWarnings = opp.execution_warnings && opp.execution_warnings.length > 0;
+                const isExpanded = expandedRows.has(rowId);
+
+                return (
+                  <>
+                    <TableRow 
+                      key={rowId}
+                      className="hover-elevate"
+                      data-testid={`row-opportunity-${index}`}
                     >
-                      {opp.signal}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm" data-testid={`text-front-date-${index}`}>
-                    {new Date(opp.front_date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-dte-${index}`}>
-                    {opp.front_dte}d
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-iv-${index}`}>
-                    {opp.front_iv}%
-                  </TableCell>
-                  <TableCell className="text-sm" data-testid={`text-back-date-${index}`}>
-                    {new Date(opp.back_date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric', 
-                      year: 'numeric' 
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-dte-${index}`}>
-                    {opp.back_dte}d
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-iv-${index}`}>
-                    {opp.back_iv}%
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-forward-vol-${index}`}>
-                    {opp.forward_vol}%
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-avg-oi-${index}`}>
-                    {opp.avg_open_interest || '—'}
-                  </TableCell>
-                  <TableCell className="text-center" data-testid={`cell-alerts-${index}`}>
-                    {opp.has_earnings_soon && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertTriangle className="h-4 w-4 text-yellow-500 inline" data-testid={`icon-earnings-warning-${index}`} />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Earnings within 7 days</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <TableCell className="w-8">
+                        {hasWarnings && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleRowExpansion(rowId)}
+                            className="h-6 w-6"
+                            data-testid={`button-expand-${index}`}
+                          >
+                            <ChevronRight 
+                              className={`h-4 w-4 transition-transform ${
+                                isExpanded ? 'rotate-90' : ''
+                              }`} 
+                            />
+                          </Button>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium tracking-wide sticky left-0 z-10 bg-background" data-testid={`text-ticker-${index}`}>
+                        {opp.ticker}
+                      </TableCell>
+                      <TableCell 
+                        className="text-right font-mono font-semibold tabular-nums"
+                        style={{ color: opp.forward_factor < 0 ? 'hsl(142 76% 36%)' : 'hsl(0 72% 51%)' }}
+                        data-testid={`text-ff-${index}`}
+                      >
+                        {opp.forward_factor > 0 ? '+' : ''}{opp.forward_factor}%
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className={
+                            opp.signal === 'BUY'
+                              ? 'bg-chart-1/10 text-chart-1 border-chart-1/20'
+                              : 'bg-chart-3/10 text-chart-3 border-chart-3/20'
+                          }
+                          data-testid={`badge-signal-${index}`}
+                        >
+                          {opp.signal}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-position-size-${index}`}>
+                        {opp.position_size_recommendation || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm" data-testid={`text-front-date-${index}`}>
+                        {new Date(opp.front_date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-dte-${index}`}>
+                        {opp.front_dte}d
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-iv-${index}`}>
+                        {opp.front_iv}%
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-oi-${index}`}>
+                        {opp.straddle_oi || '—'}
+                      </TableCell>
+                      <TableCell className="text-sm" data-testid={`text-back-date-${index}`}>
+                        {new Date(opp.back_date).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-dte-${index}`}>
+                        {opp.back_dte}d
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-iv-${index}`}>
+                        {opp.back_iv}%
+                      </TableCell>
+                      <TableCell 
+                        className={`text-right font-mono tabular-nums ${
+                          hasSignificantDifference ? 'font-semibold' : ''
+                        }`}
+                        data-testid={`text-back-oi-${index}`}
+                      >
+                        <span className={getLiquidityColor(opp.back_straddle_oi)}>
+                          {opp.back_straddle_oi || '—'}
+                        </span>
+                        {hasSignificantDifference && opp.back_straddle_oi && opp.back_straddle_oi < (opp.straddle_oi || 0) && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="h-3 w-3 text-yellow-500 inline ml-1" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Back month has {Math.abs(liquidityDifference).toFixed(0)}% less liquidity</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </TableCell>
+                      <TableCell 
+                        className={`text-right font-mono tabular-nums font-semibold ${getLiquidityColor(minLiquidity)}`}
+                        data-testid={`text-min-liquidity-${index}`}
+                      >
+                        {minLiquidity || '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-forward-vol-${index}`}>
+                        {opp.forward_vol}%
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`cell-alerts-${index}`}>
+                        {hasWarnings && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-center gap-1">
+                                  <Info className="h-4 w-4 text-blue-500" data-testid={`icon-warning-${index}`} />
+                                  <span className="text-xs text-muted-foreground">
+                                    {opp.execution_warnings?.length}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Click row to view execution warnings</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {opp.has_earnings_soon && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="h-4 w-4 text-yellow-500" data-testid={`icon-earnings-warning-${index}`} />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Earnings within 7 days</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {hasWarnings && isExpanded && (
+                      <TableRow 
+                        className="bg-muted/30"
+                        data-testid={`row-warnings-${index}`}
+                      >
+                        <TableCell colSpan={17} className="p-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Info className="h-4 w-4 text-blue-500" />
+                              <span className="font-semibold text-sm">Execution Warnings:</span>
+                            </div>
+                            <div className="space-y-1 ml-6">
+                              {opp.execution_warnings?.map((warning, wIdx) => (
+                                <Alert 
+                                  key={wIdx} 
+                                  className="py-2"
+                                  data-testid={`alert-warning-${index}-${wIdx}`}
+                                >
+                                  <AlertDescription className="text-sm">
+                                    {warning}
+                                  </AlertDescription>
+                                </Alert>
+                              ))}
+                            </div>
+                            {hasSignificantDifference && (
+                              <div className="ml-6 mt-3">
+                                <Alert className="py-2 bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800">
+                                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                                  <AlertDescription className="text-sm text-yellow-800 dark:text-yellow-200">
+                                    <strong>Liquidity Warning:</strong> Back month has significantly less liquidity than front month 
+                                    ({Math.abs(liquidityDifference).toFixed(0)}% difference). This may impact execution.
+                                  </AlertDescription>
+                                </Alert>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                  </>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

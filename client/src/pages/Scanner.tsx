@@ -136,29 +136,52 @@ export default function Scanner() {
       "ticker",
       "forward_factor",
       "signal",
+      "position_size_recommendation",
       "front_date",
       "front_dte",
       "front_iv",
+      "front_straddle_oi",
       "back_date",
       "back_dte",
       "back_iv",
+      "back_straddle_oi",
+      "min_liquidity",
       "forward_vol",
       "avg_open_interest",
+      "liquidity_score",
+      "back_liquidity_score",
+      "quality_score",
       "has_earnings_soon",
+      "execution_warnings",
     ];
 
-    const rows = scanResults.opportunities.map((opp) => [
-      opp.ticker,
-      opp.forward_factor,
-      opp.signal,
-      opp.front_date,
-      opp.front_dte,
-      opp.front_iv,
-      opp.back_date,
-      opp.back_dte,
-      opp.back_iv,
-      opp.forward_vol,
-    ]);
+    const rows = scanResults.opportunities.map((opp) => {
+      const minLiquidity = Math.min(opp.straddle_oi || 0, opp.back_straddle_oi || 0);
+      const executionWarnings = opp.execution_warnings ? opp.execution_warnings.join("; ") : "";
+      
+      return [
+        opp.ticker,
+        opp.forward_factor,
+        opp.signal,
+        opp.position_size_recommendation || "",
+        opp.front_date,
+        opp.front_dte,
+        opp.front_iv,
+        opp.straddle_oi || "",
+        opp.back_date,
+        opp.back_dte,
+        opp.back_iv,
+        opp.back_straddle_oi || "",
+        minLiquidity || "",
+        opp.forward_vol,
+        opp.avg_open_interest || "",
+        opp.liquidity_score || "",
+        opp.back_liquidity_score || "",
+        opp.quality_score || "",
+        opp.has_earnings_soon || false,
+        `"${executionWarnings}"`, // Quote execution warnings since they may contain commas
+      ];
+    });
 
     const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -171,7 +194,7 @@ export default function Scanner() {
 
     toast({
       title: "CSV Exported",
-      description: "Scan results downloaded successfully",
+      description: "Scan results with liquidity metrics downloaded successfully",
     });
   };
 
