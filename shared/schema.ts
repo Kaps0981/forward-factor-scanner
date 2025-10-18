@@ -16,12 +16,21 @@ export const opportunitySchema = z.object({
   forward_vol: z.number(),
   avg_open_interest: z.number().optional(),
   has_earnings_soon: z.boolean().optional(),
-  // Straddle liquidity fields
+  // Front month straddle liquidity fields
   atm_call_oi: z.number().optional(),
   atm_put_oi: z.number().optional(),
   straddle_oi: z.number().optional(),
   oi_put_call_ratio: z.number().optional(),
   liquidity_score: z.number().min(0).max(10).optional(),
+  // Back month straddle liquidity fields
+  back_atm_call_oi: z.number().optional(),
+  back_atm_put_oi: z.number().optional(),
+  back_straddle_oi: z.number().optional(),
+  back_liquidity_score: z.number().min(0).max(10).optional(),
+  // Position sizing recommendation
+  position_size_recommendation: z.number().optional(),
+  // Execution warnings
+  execution_warnings: z.array(z.string()).optional(),
   // Quality analysis fields
   quality_score: z.number().min(0).max(10).optional(),
   is_quality: z.boolean().optional(),

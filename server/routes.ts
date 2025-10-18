@@ -5,7 +5,7 @@ import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { PolygonService } from "./polygon";
 import { sendHighFFAlert } from "./email";
-import { analyzeOpportunityQuality, generateTradingThesis } from "./qualityFilters";
+import { analyzeOpportunityQuality, generateTradingThesis, calculatePositionSize, generateExecutionWarnings } from "./qualityFilters";
 import { generateHTMLReport, generateMarkdownReport } from "./reportGenerator";
 import { TradingCalendar } from "./tradingCalendar";
 
@@ -174,6 +174,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         const analysis = analyzeOpportunityQuality(opp);
+        const positionSize = calculatePositionSize(opp);
+        const warnings = generateExecutionWarnings(opp);
+        
         return {
           ...opp,
           quality_score: analysis.rating,
@@ -181,6 +184,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           probability: analysis.probability,
           risk_reward: analysis.riskReward,
           rejection_reasons: analysis.rejectionReasons,
+          position_size_recommendation: positionSize,
+          execution_warnings: warnings,
         };
       });
       
@@ -262,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const earningsMap = new Map(earningsChecks.map(e => [e.ticker, e.hasEarnings]));
       
-      // Add earnings flag and quality analysis to opportunities
+      // Add earnings flag, quality analysis, position sizing, and warnings to opportunities
       const opportunitiesWithAnalysis = filteredOpportunities.map(opp => {
         const oppWithEarnings = {
           ...opp,
@@ -272,6 +277,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Run quality analysis
         const analysis = analyzeOpportunityQuality(oppWithEarnings);
         
+        // Calculate position size recommendation
+        const positionSize = calculatePositionSize(oppWithEarnings);
+        
+        // Generate execution warnings
+        const warnings = generateExecutionWarnings(oppWithEarnings);
+        
         return {
           ...oppWithEarnings,
           quality_score: analysis.rating,
@@ -279,6 +290,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           probability: analysis.probability,
           risk_reward: analysis.riskReward,
           rejection_reasons: analysis.rejectionReasons,
+          position_size_recommendation: positionSize,
+          execution_warnings: warnings,
         };
       });
 

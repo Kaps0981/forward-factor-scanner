@@ -1,0 +1,62 @@
+1. Average OI is Misleading
+Scanner shows aggregate OI across all strikes
+Specific strikes may have zero liquidity
+Always verify before trading
+2. Back Month is the Bottleneck
+Front month usually liquid (high volume)
+Back month often has poor liquidity
+Check back month FIRST
+3. Academic Research Validates Strategy
+Forward variance is biased predictor (proven)
+Long-short portfolios are profitable (proven)
+Inverted structures can be genuine opportunities (proven)
+4. Execution > Theory
+Great opportunity on paper ≠ tradeable
+Slippage can eat 15-20% of position
+Position sizing must respect liquidity
+5. Mid-Caps Retain Retail Edge
+Less institutional attention
+Higher volatility = larger FF opportunities
+Sweet spot: $5B-$50B market cap
+What Makes This Analysis Unique
+1. End-to-End Automation
+Not just a scanner, but a complete system
+Scheduled execution with holiday awareness
+Automated report generation
+2. Academic Validation
+Grounded in peer-reviewed research
+Evidence-based filter design
+Theoretical foundation explained
+3. Practical Execution Focus
+Verified YOUR specific trades
+Identified real liquidity issues
+Provided exact position sizing rules
+4. Comprehensive Documentation
+Setup guides for reproducibility
+Detailed analysis of all opportunities
+Clear action items and recommendations
+5. Risk-First Approach
+Identified ALL ways to lose money
+Calculated expected values
+Flagged traps and false signals
+Bottom Line
+What You Got:
+✅ Automated nightly scanner (production-ready)
+✅ 5 tradeable opportunities identified
+✅ 7 traps to avoid (with reasons)
+✅ Position sizing rules for each
+✅ Academic validation of strategy
+✅ Complete documentation and code
+What You Learned:
+✅ Average OI is misleading (verify specific strikes!)
+✅ Back month liquidity is critical
+✅ Pure calendars > Diagonal spreads
+✅ Position size must respect OI
+✅ Start with PLTR (best liquidity)
+What You Avoided:
+❌ DASH disaster (zero back month OI)
+❌ SOFI put trap (131 OI)
+❌ OKTA diagonal (22.7% win rate)
+❌ LEAP wide spreads
+❌ Ultra-short gamma risk
+The scanner finds real opportunities, but execution is everything. Always verify specific strike liquidity before trading!

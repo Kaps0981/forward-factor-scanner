@@ -9,6 +9,104 @@ export interface QualityAnalysis {
 }
 
 /**
+ * Calculate recommended position size based on minimum liquidity between front and back months
+ * Returns number of contracts recommended (5-10% of smaller OI)
+ */
+export function calculatePositionSize(opp: Opportunity): number {
+  // Get front and back month straddle OI
+  const frontOI = opp.straddle_oi || 0;
+  const backOI = opp.back_straddle_oi || 0;
+  
+  // Use the MINIMUM of front and back OI as the bottleneck
+  const minOI = Math.min(frontOI, backOI);
+  
+  // If either is 0, return 0 (no position recommended)
+  if (minOI === 0) return 0;
+  
+  // Calculate position size as 5-10% of minimum OI
+  // Use 5% for lower liquidity, 10% for higher liquidity
+  let percentage = 0.05; // Default 5%
+  
+  if (minOI >= 1000) {
+    percentage = 0.10; // 10% for high liquidity
+  } else if (minOI >= 500) {
+    percentage = 0.075; // 7.5% for medium liquidity
+  } else if (minOI >= 250) {
+    percentage = 0.06; // 6% for lower medium liquidity
+  }
+  // else keep at 5% for low liquidity
+  
+  // Calculate position size and round down (conservative)
+  const positionSize = Math.floor(minOI * percentage);
+  
+  // Cap at reasonable maximums based on liquidity tiers
+  if (minOI < 100) return Math.min(positionSize, 5); // Max 5 contracts for very low liquidity
+  if (minOI < 250) return Math.min(positionSize, 10); // Max 10 contracts for low liquidity
+  if (minOI < 500) return Math.min(positionSize, 25); // Max 25 contracts for medium liquidity
+  if (minOI < 1000) return Math.min(positionSize, 50); // Max 50 contracts for good liquidity
+  
+  return positionSize; // No cap for excellent liquidity (>1000 OI)
+}
+
+/**
+ * Generate execution warnings based on liquidity and market conditions
+ */
+export function generateExecutionWarnings(opp: Opportunity): string[] {
+  const warnings: string[] = [];
+  
+  // Always include critical strike verification warning
+  warnings.push("VERIFY EXACT STRIKES: Average OI may be misleading, check specific ATM strikes before trading");
+  
+  // Check back month liquidity
+  const backOI = opp.back_straddle_oi || 0;
+  if (backOI < 100) {
+    warnings.push(`CRITICAL - BACK MONTH LIQUIDITY: Back month has only ${backOI} straddle OI - verify exact strikes and consider reducing position size`);
+  } else if (backOI < 250) {
+    warnings.push(`CHECK BACK MONTH: Back month shows ${backOI} straddle OI - expect wider spreads on back leg`);
+  }
+  
+  // Compare front and back liquidity
+  const frontOI = opp.straddle_oi || 0;
+  if (backOI > 0 && frontOI > 0) {
+    const liquidityRatio = backOI / frontOI;
+    if (liquidityRatio < 0.5) {
+      warnings.push(`LIQUIDITY IMBALANCE: Back month has ${Math.round(liquidityRatio * 100)}% of front month liquidity - back leg will be harder to execute`);
+    }
+  }
+  
+  // Add slippage warning for low liquidity
+  const minOI = Math.min(frontOI, backOI);
+  if (minOI < 50) {
+    warnings.push("EXTREME SLIPPAGE RISK: Expected slippage 20-30% with very low liquidity - use limit orders only");
+  } else if (minOI < 100) {
+    warnings.push("HIGH SLIPPAGE RISK: Expected slippage 15-20% with low liquidity - avoid market orders");
+  } else if (minOI < 250) {
+    warnings.push("SLIPPAGE WARNING: Expected slippage 10-15% - use careful order management");
+  }
+  
+  // Warn about put/call imbalance
+  if (opp.oi_put_call_ratio !== undefined && opp.oi_put_call_ratio !== null) {
+    if (opp.oi_put_call_ratio > 2.5) {
+      warnings.push("PUT SKEW ALERT: Heavy put positioning may indicate hedging activity - expect put premiums to be elevated");
+    } else if (opp.oi_put_call_ratio < 0.4) {
+      warnings.push("CALL SKEW ALERT: Heavy call positioning may indicate speculation - expect call premiums to be elevated");
+    }
+  }
+  
+  // Warn about very short front DTE
+  if (opp.front_dte < 14) {
+    warnings.push(`SHORT DTE WARNING: Front month expires in ${opp.front_dte} days - gamma risk increases rapidly near expiration`);
+  }
+  
+  // Warn about earnings if applicable
+  if (opp.has_earnings_soon) {
+    warnings.push("EARNINGS WARNING: Upcoming earnings may cause significant IV changes - monitor closely");
+  }
+  
+  return warnings;
+}
+
+/**
  * Apply strict quality filters to eliminate false signals
  * Based on proven methodology from Python analysis
  */
@@ -71,39 +169,83 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating -= 2;
   }
   
-  // Filter 6: Enhanced liquidity check using straddle analysis
-  if (opp.straddle_oi !== undefined && opp.straddle_oi !== null) {
-    // Primary liquidity check: Straddle OI (min 100 for high liquidity)
-    if (opp.straddle_oi < 100) {
-      rejectionReasons.push(`CRITICAL: Insufficient straddle liquidity: Combined OI = ${opp.straddle_oi} (minimum 100 required for effective trading)`);
+  // Filter 6: Enhanced liquidity check using BOTH front and back month straddle analysis
+  const frontOI = opp.straddle_oi || 0;
+  const backOI = opp.back_straddle_oi || 0;
+  const minOI = Math.min(frontOI, backOI);
+  
+  // Check FRONT month liquidity
+  if (frontOI !== undefined && frontOI !== null) {
+    if (frontOI < 100) {
+      rejectionReasons.push(`CRITICAL: Insufficient FRONT month straddle liquidity: Combined OI = ${frontOI} (minimum 100 required for effective trading)`);
       rating -= 3; // Heavy penalty for poor liquidity
-    } else if (opp.straddle_oi < 250) {
-      rejectionReasons.push(`WARNING: Low straddle liquidity: Combined OI = ${opp.straddle_oi} (prefer >= 250 for smoother execution)`);
+    } else if (frontOI < 250) {
+      rejectionReasons.push(`WARNING: Low FRONT month straddle liquidity: Combined OI = ${frontOI} (prefer >= 250 for smoother execution)`);
       rating -= 1;
-    } else if (opp.straddle_oi >= 1000) {
-      // Excellent liquidity bonus
+    }
+  }
+  
+  // Check BACK month liquidity (even more critical for calendar spreads)
+  if (backOI !== undefined && backOI !== null) {
+    if (backOI < 100) {
+      rejectionReasons.push(`CRITICAL: Insufficient BACK month straddle liquidity: Combined OI = ${backOI} (minimum 100 required - back leg is the bottleneck!)`);
+      rating -= 3; // Heavy penalty for poor back month liquidity
+    } else if (backOI < 250) {
+      rejectionReasons.push(`WARNING: Low BACK month straddle liquidity: Combined OI = ${backOI} (prefer >= 250 - expect wider spreads on back leg)`);
+      rating -= 1;
+    }
+  }
+  
+  // Use MINIMUM liquidity for scoring (both legs must be tradeable)
+  if (minOI > 0) {
+    if (minOI < 100) {
+      rejectionReasons.push(`REJECT: Minimum liquidity across both months = ${minOI} OI (need >= 100 for both legs)`);
+      rating = Math.max(0, rating - 4); // Severe penalty
+    } else if (minOI >= 1000) {
+      // Excellent liquidity in BOTH months
+      rating += 2;
+    } else if (minOI >= 500) {
+      // Good liquidity in both months
       rating += 1;
     }
-
-    // Check put/call ratio for market sentiment
-    if (opp.oi_put_call_ratio !== undefined && opp.oi_put_call_ratio !== null) {
-      if (opp.oi_put_call_ratio > 2.0) {
-        rejectionReasons.push(`CAUTION: Heavily skewed put interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential downside hedge demand`);
-      } else if (opp.oi_put_call_ratio < 0.5) {
-        rejectionReasons.push(`CAUTION: Heavily skewed call interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential upside speculation`);
+    
+    // Check liquidity imbalance between months
+    if (frontOI > 0 && backOI > 0) {
+      const imbalanceRatio = backOI / frontOI;
+      if (imbalanceRatio < 0.25) {
+        rejectionReasons.push(`SEVERE LIQUIDITY IMBALANCE: Back month has only ${Math.round(imbalanceRatio * 100)}% of front month liquidity - back leg execution will be very difficult`);
+        rating -= 2;
+      } else if (imbalanceRatio < 0.5) {
+        rejectionReasons.push(`LIQUIDITY IMBALANCE: Back month has ${Math.round(imbalanceRatio * 100)}% of front month liquidity - expect challenges with back leg`);
+        rating -= 1;
       }
     }
+  }
 
-    // Use liquidity score for rating adjustment
-    if (opp.liquidity_score !== undefined && opp.liquidity_score !== null) {
-      if (opp.liquidity_score < 4) {
-        rating -= 2; // Poor liquidity
-      } else if (opp.liquidity_score >= 7) {
-        rating += 1; // Excellent liquidity
-      }
+  // Check put/call ratio for market sentiment (front month)
+  if (opp.oi_put_call_ratio !== undefined && opp.oi_put_call_ratio !== null) {
+    if (opp.oi_put_call_ratio > 2.0) {
+      rejectionReasons.push(`CAUTION: Heavily skewed put interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential downside hedge demand`);
+    } else if (opp.oi_put_call_ratio < 0.5) {
+      rejectionReasons.push(`CAUTION: Heavily skewed call interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential upside speculation`);
     }
-  } else if (opp.avg_open_interest !== undefined && opp.avg_open_interest !== null) {
-    // Fallback to average OI if straddle metrics not available
+  }
+
+  // Use minimum liquidity score for rating adjustment
+  const minLiquidityScore = Math.min(
+    opp.liquidity_score || 0,
+    opp.back_liquidity_score || 0
+  );
+  if (minLiquidityScore > 0) {
+    if (minLiquidityScore < 4) {
+      rating -= 2; // Poor liquidity in at least one month
+    } else if (minLiquidityScore >= 7) {
+      rating += 1; // Excellent liquidity in both months
+    }
+  }
+  
+  // Fallback to average OI if straddle metrics not available
+  if (frontOI === 0 && backOI === 0 && opp.avg_open_interest !== undefined && opp.avg_open_interest !== null) {
     if (opp.avg_open_interest < 100) {
       rejectionReasons.push(`Low liquidity: Avg OI = ${opp.avg_open_interest} (prefer >= 100)`);
       rating -= 1;

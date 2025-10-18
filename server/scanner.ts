@@ -254,12 +254,17 @@ export class ForwardFactorScanner {
             forward_vol: Math.round(forwardVol * 100) / 100,
             avg_open_interest: front.avgOpenInterest,
             has_earnings_soon: false, // Will be populated by routes.ts
-            // Straddle liquidity metrics from front expiration
+            // Front month straddle liquidity metrics
             atm_call_oi: front.atmCallOI,
             atm_put_oi: front.atmPutOI,
             straddle_oi: front.straddleOI,
             oi_put_call_ratio: front.oiPutCallRatio,
             liquidity_score: front.liquidityScore,
+            // Back month straddle liquidity metrics
+            back_atm_call_oi: back.atmCallOI,
+            back_atm_put_oi: back.atmPutOI,
+            back_straddle_oi: back.straddleOI,
+            back_liquidity_score: back.liquidityScore,
           });
         }
       }
