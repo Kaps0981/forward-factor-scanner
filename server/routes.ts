@@ -337,6 +337,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           forward_vol: opp.forward_vol,
           avg_open_interest: opp.avg_open_interest,
           has_earnings_soon: opp.has_earnings_soon ? 'true' : 'false',
+          // Front month straddle liquidity fields
+          atm_call_oi: opp.atm_call_oi,
+          atm_put_oi: opp.atm_put_oi,
+          straddle_oi: opp.straddle_oi,
+          oi_put_call_ratio: opp.oi_put_call_ratio,
+          liquidity_score: opp.liquidity_score,
+          // Back month straddle liquidity fields
+          back_atm_call_oi: opp.back_atm_call_oi,
+          back_atm_put_oi: opp.back_atm_put_oi,
+          back_straddle_oi: opp.back_straddle_oi,
+          back_liquidity_score: opp.back_liquidity_score,
+          // Position sizing and warnings
+          position_size_recommendation: opp.position_size_recommendation,
+          execution_warnings: opp.execution_warnings,
+          // Quality analysis fields
+          quality_score: opp.quality_score,
+          is_quality: opp.is_quality,
+          probability: opp.probability,
+          risk_reward: opp.risk_reward,
+          rejection_reasons: opp.rejection_reasons,
+          // IVR fields
+          front_ivr: opp.front_ivr,
+          back_ivr: opp.back_ivr,
+          ivr_context: opp.ivr_context,
         }));
         
         await storage.createOpportunities(opportunityRecords);

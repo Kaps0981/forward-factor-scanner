@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 // Scanner opportunity result from Forward Factor analysis
@@ -118,6 +118,31 @@ export const opportunities = pgTable("opportunities", {
   forward_vol: doublePrecision("forward_vol").notNull(),
   avg_open_interest: integer("avg_open_interest"),
   has_earnings_soon: varchar("has_earnings_soon", { length: 5 }),
+  // Front month straddle liquidity fields
+  atm_call_oi: integer("atm_call_oi"),
+  atm_put_oi: integer("atm_put_oi"),
+  straddle_oi: integer("straddle_oi"),
+  oi_put_call_ratio: doublePrecision("oi_put_call_ratio"),
+  liquidity_score: integer("liquidity_score"),
+  // Back month straddle liquidity fields
+  back_atm_call_oi: integer("back_atm_call_oi"),
+  back_atm_put_oi: integer("back_atm_put_oi"),
+  back_straddle_oi: integer("back_straddle_oi"),
+  back_liquidity_score: integer("back_liquidity_score"),
+  // Position sizing recommendation
+  position_size_recommendation: varchar("position_size_recommendation", { length: 50 }),
+  // Execution warnings
+  execution_warnings: jsonb("execution_warnings"), // Array of warning strings
+  // Quality analysis fields
+  quality_score: integer("quality_score"),
+  is_quality: boolean("is_quality"),
+  probability: integer("probability"),
+  risk_reward: doublePrecision("risk_reward"),
+  rejection_reasons: jsonb("rejection_reasons"), // Array of rejection strings
+  // IVR (Implied Volatility Rank) fields
+  front_ivr: integer("front_ivr"),
+  back_ivr: integer("back_ivr"),
+  ivr_context: varchar("ivr_context", { length: 100 }),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });
