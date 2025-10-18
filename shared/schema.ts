@@ -37,6 +37,10 @@ export const opportunitySchema = z.object({
   probability: z.number().min(0).max(100).optional(),
   risk_reward: z.number().min(0).optional(),
   rejection_reasons: z.array(z.string()).optional(),
+  // IVR (Implied Volatility Rank) fields
+  front_ivr: z.number().min(0).max(100).optional(),
+  back_ivr: z.number().min(0).max(100).optional(),
+  ivr_context: z.string().optional(),
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;

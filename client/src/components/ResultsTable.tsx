@@ -91,6 +91,18 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
     return 'text-red-600 dark:text-red-400';
   };
 
+  const getIVRBadgeVariant = (ivr: number | undefined): string => {
+    if (ivr === undefined || ivr === null) return 'outline';
+    if (ivr > 70) return 'destructive'; // Red for high IVR
+    if (ivr >= 30) return 'secondary'; // Yellow/normal for normal IVR
+    return 'default'; // Green for low IVR
+  };
+
+  const getIVRLabel = (ivr: number | undefined): string => {
+    if (ivr === undefined || ivr === null) return '—';
+    return `${Math.round(ivr)}`;
+  };
+
   const toggleRowExpansion = (rowId: string) => {
     setExpandedRows(prev => {
       const newSet = new Set(prev);
@@ -173,6 +185,19 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Front DTE <SortIcon field="front_dte" />
                 </TableHead>
                 <TableHead className="text-right font-semibold">Front IV</TableHead>
+                <TableHead className="text-center font-semibold">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Front IVR
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Implied Volatility Rank (0-100)</p>
+                        <p className="text-xs text-muted-foreground">Estimates where current IV stands relative to typical ranges</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead className="text-right font-semibold">Front OI</TableHead>
                 <TableHead className="font-semibold">Back Contract</TableHead>
                 <TableHead 
@@ -183,6 +208,19 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Back DTE <SortIcon field="back_dte" />
                 </TableHead>
                 <TableHead className="text-right font-semibold">Back IV</TableHead>
+                <TableHead className="text-center font-semibold">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Back IVR
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Implied Volatility Rank (0-100)</p>
+                        <p className="text-xs text-muted-foreground">Estimates where current IV stands relative to typical ranges</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead className="text-right font-semibold">Back Month OI</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold"
@@ -269,6 +307,30 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-iv-${index}`}>
                         {opp.front_iv}%
                       </TableCell>
+                      <TableCell className="text-center" data-testid={`badge-front-ivr-${index}`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant={getIVRBadgeVariant(opp.front_ivr) as any}
+                                className="font-mono"
+                              >
+                                {getIVRLabel(opp.front_ivr)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div>
+                                <p className="font-semibold">Front Month IVR: {opp.front_ivr || '—'}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {opp.front_ivr && opp.front_ivr > 70 && "High volatility regime - favors selling premium"}
+                                  {opp.front_ivr && opp.front_ivr >= 30 && opp.front_ivr <= 70 && "Normal volatility regime"}
+                                  {opp.front_ivr && opp.front_ivr < 30 && "Low volatility regime - favors buying premium"}
+                                </p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
                       <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-oi-${index}`}>
                         {opp.straddle_oi || '—'}
                       </TableCell>
@@ -284,6 +346,33 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-iv-${index}`}>
                         {opp.back_iv}%
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`badge-back-ivr-${index}`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant={getIVRBadgeVariant(opp.back_ivr) as any}
+                                className="font-mono"
+                              >
+                                {getIVRLabel(opp.back_ivr)}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div>
+                                <p className="font-semibold">Back Month IVR: {opp.back_ivr || '—'}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {opp.back_ivr && opp.back_ivr > 70 && "High volatility regime - favors selling premium"}
+                                  {opp.back_ivr && opp.back_ivr >= 30 && opp.back_ivr <= 70 && "Normal volatility regime"}
+                                  {opp.back_ivr && opp.back_ivr < 30 && "Low volatility regime - favors buying premium"}
+                                </p>
+                                {opp.ivr_context && (
+                                  <p className="text-xs font-medium mt-2">{opp.ivr_context}</p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell 
                         className={`text-right font-mono tabular-nums ${
@@ -355,7 +444,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       >
                         <TableCell className="sticky left-0 z-10 bg-muted/30 border-r border-card-border"></TableCell>
                         <TableCell className="sticky left-8 z-10 bg-muted/30"></TableCell>
-                        <TableCell colSpan={15} className="p-4">
+                        <TableCell colSpan={17} className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Info className="h-4 w-4 text-blue-500" />

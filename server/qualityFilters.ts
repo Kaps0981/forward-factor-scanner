@@ -117,6 +117,11 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
   const absFF = Math.abs(opp.forward_factor);
   const isInverted = opp.front_iv > opp.back_iv;
   
+  // Get IVR values for analysis
+  const frontIVR = opp.front_ivr || 50; // Default to normal if not available
+  const backIVR = opp.back_ivr || 50;
+  const avgIVR = (frontIVR + backIVR) / 2;
+  
   // Filter 1: Minimum |FF| threshold (30% for quality)
   if (absFF < 30) {
     rejectionReasons.push(`Forward Factor too low: ${opp.forward_factor.toFixed(1)}% (need |FF| > 30%)`);
@@ -231,6 +236,25 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     }
   }
 
+  // IVR-based strategy recommendations
+  if (avgIVR > 70 && opp.forward_factor > 0) {
+    // High IVR + Positive FF = Aligned signal (SELL premium in high vol)
+    rejectionReasons.push(`PREMIUM SELL OPPORTUNITY: High volatility regime (IVR: ${avgIVR.toFixed(0)}) aligns with sell signal - favorable conditions for selling premium`);
+    rating += 1; // Boost rating for aligned signals
+  } else if (avgIVR < 30 && opp.forward_factor < 0) {
+    // Low IVR + Negative FF = Aligned signal (BUY premium in low vol)
+    rejectionReasons.push(`PREMIUM BUY OPPORTUNITY: Low volatility regime (IVR: ${avgIVR.toFixed(0)}) aligns with buy signal - favorable conditions for buying premium`);
+    rating += 1; // Boost rating for aligned signals
+  } else if (avgIVR > 70 && opp.forward_factor < 0) {
+    // High IVR + Negative FF = Conflicting signals
+    rejectionReasons.push(`CAUTION: Mixed signals - High IVR (${avgIVR.toFixed(0)}) suggests sell, but FF indicates buy. Consider reduced position size.`);
+    rating -= 1; // Reduce rating for conflicting signals
+  } else if (avgIVR < 30 && opp.forward_factor > 0) {
+    // Low IVR + Positive FF = Conflicting signals
+    rejectionReasons.push(`CAUTION: Mixed signals - Low IVR (${avgIVR.toFixed(0)}) suggests buy, but FF indicates sell. Consider reduced position size.`);
+    rating -= 1; // Reduce rating for conflicting signals
+  }
+
   // Use minimum liquidity score for rating adjustment
   const minLiquidityScore = Math.min(
     opp.liquidity_score || 0,
@@ -291,6 +315,34 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
 export function generateTradingThesis(opp: Opportunity, analysis: QualityAnalysis): string {
   const absFF = Math.abs(opp.forward_factor);
   
+  // Get IVR values for context
+  const frontIVR = opp.front_ivr || 50;
+  const backIVR = opp.back_ivr || 50;
+  const avgIVR = (frontIVR + backIVR) / 2;
+  
+  // Build IVR context and position sizing recommendation
+  let ivrAssessment = '';
+  if (avgIVR > 70) {
+    ivrAssessment = `HIGH VOLATILITY REGIME (IVR: ${avgIVR.toFixed(0)}): Market is in elevated volatility. `;
+    if (opp.forward_factor > 0) {
+      ivrAssessment += `This aligns perfectly with selling premium strategies. `;
+    } else {
+      ivrAssessment += `Caution: High IVR typically favors selling, conflicting with buy signal. `;
+    }
+    ivrAssessment += `Consider smaller positions due to elevated volatility risk. `;
+  } else if (avgIVR < 30) {
+    ivrAssessment = `LOW VOLATILITY REGIME (IVR: ${avgIVR.toFixed(0)}): Market is in compressed volatility. `;
+    if (opp.forward_factor < 0) {
+      ivrAssessment += `This aligns well with buying premium strategies. `;
+    } else {
+      ivrAssessment += `Caution: Low IVR typically favors buying, conflicting with sell signal. `;
+    }
+    ivrAssessment += `Potential for volatility expansion - size positions accordingly. `;
+  } else {
+    ivrAssessment = `NORMAL VOLATILITY REGIME (IVR: ${avgIVR.toFixed(0)}): Market volatility is within typical ranges. `;
+    ivrAssessment += `Standard position sizing appropriate. `;
+  }
+  
   // Build liquidity assessment string
   let liquidityAssessment = '';
   if (opp.straddle_oi !== undefined && opp.liquidity_score !== undefined) {
@@ -318,6 +370,7 @@ export function generateTradingThesis(opp: Opportunity, analysis: QualityAnalysi
            `significantly elevated compared to the forward volatility of ${opp.forward_vol.toFixed(1)}%. ` +
            `This ${absFF.toFixed(1)}% premium suggests the front contract is overpriced relative to the back contract ` +
            `(${opp.back_dte}d at ${opp.back_iv.toFixed(1)}% IV). ` +
+           ivrAssessment +
            liquidityAssessment +
            `Consider SELLING front-month volatility through straddles/strangles or buying calendar spreads. ` +
            `Probability of profit: ${analysis.probability}%, Risk/Reward: ${analysis.riskReward}:1`;
@@ -327,6 +380,7 @@ export function generateTradingThesis(opp: Opportunity, analysis: QualityAnalysi
            `significantly discounted compared to the forward volatility of ${opp.forward_vol.toFixed(1)}%. ` +
            `This ${absFF.toFixed(1)}% discount suggests the front contract is underpriced relative to the back contract ` +
            `(${opp.back_dte}d at ${opp.back_iv.toFixed(1)}% IV). ` +
+           ivrAssessment +
            liquidityAssessment +
            `Consider BUYING front-month volatility through straddles/strangles or selling reverse calendar spreads. ` +
            `Probability of profit: ${analysis.probability}%, Risk/Reward: ${analysis.riskReward}:1`;

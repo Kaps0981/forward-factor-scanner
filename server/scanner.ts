@@ -189,6 +189,61 @@ export class ForwardFactorScanner {
     return groups.sort((a, b) => a.dte - b.dte);
   }
 
+  /**
+   * Calculate Implied Volatility Rank (IVR) based on current IV levels.
+   * This is a mock implementation until we have access to historical IV data.
+   * 
+   * Full IVR calculation would require 52-week IV history:
+   * IVR = (Current IV - 52-week Low) / (52-week High - 52-week Low) * 100
+   * 
+   * For now, we use a simplified estimation based on absolute IV levels:
+   * - IV < 20% → IVR ~20 (low volatility regime)
+   * - IV 20-40% → IVR ~50 (normal volatility regime)
+   * - IV 40-60% → IVR ~70 (elevated volatility regime)
+   * - IV > 60% → IVR ~85 (high volatility regime)
+   * 
+   * @param currentIV The current implied volatility percentage
+   * @returns Estimated IVR value (0-100)
+   */
+  private calculateIVR(currentIV: number): number {
+    // NOTE: This is a placeholder implementation until we have historical IV data
+    // A proper IVR calculation requires 52-week historical IV data from the API
+    
+    if (currentIV < 20) {
+      // Low volatility regime - IVR around 20
+      return Math.round(15 + (currentIV / 20) * 5);
+    } else if (currentIV < 40) {
+      // Normal volatility regime - IVR around 50
+      const normalized = (currentIV - 20) / 20;
+      return Math.round(20 + normalized * 30);
+    } else if (currentIV < 60) {
+      // Elevated volatility regime - IVR around 70
+      const normalized = (currentIV - 40) / 20;
+      return Math.round(50 + normalized * 20);
+    } else {
+      // High volatility regime - IVR around 85
+      const normalized = Math.min((currentIV - 60) / 40, 1);
+      return Math.round(70 + normalized * 15);
+    }
+  }
+
+  /**
+   * Get IVR context string based on IVR value
+   * @param ivr The IVR value (0-100)
+   * @returns Context string describing the volatility regime
+   */
+  private getIVRContext(ivr: number): string {
+    if (ivr < 30) {
+      return "Low volatility regime";
+    } else if (ivr < 50) {
+      return "Normal volatility regime";
+    } else if (ivr < 70) {
+      return "Elevated volatility regime";
+    } else {
+      return "High volatility regime";
+    }
+  }
+
   private calculateForwardFactor(frontIV: number, backIV: number, frontDTE: number, backDTE: number): {
     forwardFactor: number;
     forwardVol: number;
@@ -241,6 +296,13 @@ export class ForwardFactorScanner {
         );
 
         if (forwardFactor !== 0 && forwardFactor >= minFF && forwardFactor <= maxFF) {
+          // Calculate IVR for both front and back months
+          const frontIVR = this.calculateIVR(front.atmIV);
+          const backIVR = this.calculateIVR(back.atmIV);
+          // Use the average IVR for context (or could use front month as primary)
+          const avgIVR = Math.round((frontIVR + backIVR) / 2);
+          const ivrContext = this.getIVRContext(avgIVR);
+          
           opportunities.push({
             ticker,
             forward_factor: Math.round(forwardFactor * 100) / 100,
@@ -265,6 +327,10 @@ export class ForwardFactorScanner {
             back_atm_put_oi: back.atmPutOI,
             back_straddle_oi: back.straddleOI,
             back_liquidity_score: back.liquidityScore,
+            // IVR fields
+            front_ivr: frontIVR,
+            back_ivr: backIVR,
+            ivr_context: ivrContext,
           });
         }
       }
