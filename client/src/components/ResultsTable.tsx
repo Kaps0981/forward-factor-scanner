@@ -154,38 +154,38 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           <p className="text-muted-foreground">No opportunities found. Run a scan to get started.</p>
         </div>
       ) : (
-        <div className="border border-card-border rounded-lg">
-        <div className="relative max-h-[600px] overflow-auto rounded-lg">
+        <div className="border border-card-border rounded-lg overflow-hidden">
+        <div className="relative max-h-[600px] overflow-auto">
           <Table className="relative">
-            <TableHeader className="sticky top-0 z-50 bg-background border-b border-card-border">
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-8 sticky left-0 z-50 bg-background border-r border-card-border"></TableHead>
+            <TableHeader className="sticky top-0 z-50">
+              <TableRow className="hover:bg-transparent bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <TableHead className="w-8 sticky left-0 z-[60] bg-background border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableHead>
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-50 bg-background"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-[60] bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
                   Ticker <SortIcon field="ticker" />
                 </TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
                   onClick={() => handleSort('forward_factor')}
                   data-testid="header-forward-factor"
                 >
                   Forward Factor <SortIcon field="forward_factor" />
                 </TableHead>
-                <TableHead className="text-center font-semibold">Signal</TableHead>
-                <TableHead className="text-right font-semibold">Position Size</TableHead>
-                <TableHead className="font-semibold">Front Contract</TableHead>
+                <TableHead className="text-center font-semibold bg-background">Signal</TableHead>
+                <TableHead className="text-right font-semibold bg-background">Position Size</TableHead>
+                <TableHead className="font-semibold bg-background">Front Contract</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
                   onClick={() => handleSort('front_dte')}
                   data-testid="header-front-dte"
                 >
                   Front DTE <SortIcon field="front_dte" />
                 </TableHead>
-                <TableHead className="text-right font-semibold">Front IV</TableHead>
-                <TableHead className="text-center font-semibold">
+                <TableHead className="text-right font-semibold bg-background">Front IV</TableHead>
+                <TableHead className="text-center font-semibold bg-background">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -198,17 +198,17 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-right font-semibold">Front OI</TableHead>
-                <TableHead className="font-semibold">Back Contract</TableHead>
+                <TableHead className="text-right font-semibold bg-background">Front OI</TableHead>
+                <TableHead className="font-semibold bg-background">Back Contract</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
                   onClick={() => handleSort('back_dte')}
                   data-testid="header-back-dte"
                 >
                   Back DTE <SortIcon field="back_dte" />
                 </TableHead>
-                <TableHead className="text-right font-semibold">Back IV</TableHead>
-                <TableHead className="text-center font-semibold">
+                <TableHead className="text-right font-semibold bg-background">Back IV</TableHead>
+                <TableHead className="text-center font-semibold bg-background">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -221,16 +221,16 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-right font-semibold">Back Month OI</TableHead>
+                <TableHead className="text-right font-semibold bg-background">Back Month OI</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
                   onClick={() => handleSort('min_liquidity')}
                   data-testid="header-min-liquidity"
                 >
                   Min Liquidity <SortIcon field="min_liquidity" />
                 </TableHead>
-                <TableHead className="text-right font-semibold">Forward Vol</TableHead>
-                <TableHead className="text-center font-semibold">Alerts</TableHead>
+                <TableHead className="text-right font-semibold bg-background">Forward Vol</TableHead>
+                <TableHead className="text-center font-semibold bg-background">Alerts</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -251,7 +251,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       className="hover-elevate"
                       data-testid={`row-opportunity-${index}`}
                     >
-                      <TableCell className="w-8 sticky left-0 z-10 bg-background border-r border-card-border">
+                      <TableCell className="w-8 sticky left-0 z-[40] bg-background border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         {hasWarnings && (
                           <Button
                             variant="ghost"
@@ -268,7 +268,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium tracking-wide sticky left-8 z-10 bg-background" data-testid={`text-ticker-${index}`}>
+                      <TableCell className="font-medium tracking-wide sticky left-8 z-[40] bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]" data-testid={`text-ticker-${index}`}>
                         {opp.ticker}
                       </TableCell>
                       <TableCell 
@@ -442,8 +442,8 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         className="bg-muted/30"
                         data-testid={`row-warnings-${index}`}
                       >
-                        <TableCell className="sticky left-0 z-10 bg-muted/30 border-r border-card-border"></TableCell>
-                        <TableCell className="sticky left-8 z-10 bg-muted/30"></TableCell>
+                        <TableCell className="sticky left-0 z-[40] bg-muted/30 border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
+                        <TableCell className="sticky left-8 z-[40] bg-muted/30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
                         <TableCell colSpan={17} className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
