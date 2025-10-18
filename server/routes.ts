@@ -4,6 +4,7 @@ import { ForwardFactorScanner, DEFAULT_TICKERS } from "./scanner";
 import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { PolygonService } from "./polygon";
+import { sendHighFFAlert } from "./email";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -219,6 +220,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
         
         await storage.createOpportunities(opportunityRecords);
+      }
+
+      // Send email alert if enabled and high FF opportunities found
+      if (enable_email_alerts && limitedOpportunities.length > 0) {
+        sendHighFFAlert(limitedOpportunities).catch(err => {
+          console.error('Email alert failed:', err);
+          // Don't fail the scan if email fails
+        });
       }
 
       res.json({
