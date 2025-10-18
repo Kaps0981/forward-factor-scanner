@@ -73,10 +73,6 @@ export class ForwardFactorScanner {
     );
 
     if (atmOptions.length === 0) {
-      // Debug: Check why no ATM options found
-      const optionsWithIV = options.filter(opt => opt.implied_volatility);
-      const atmOptionsNoIV = options.filter(opt => this.isATM(opt.strike_price, stockPrice));
-      console.log(`    ⚠️  No ATM options with IV. Total options: ${options.length}, With IV: ${optionsWithIV.length}, ATM (±10%): ${atmOptionsNoIV.length}`);
       return 0;
     }
 
@@ -136,21 +132,14 @@ export class ForwardFactorScanner {
     try {
       const options = await this.polygon.getOptionsContracts(ticker);
       
-      console.log(`[${ticker}] Fetched ${options.length} options contracts`);
-      
       if (options.length === 0) {
-        console.log(`[${ticker}] No options data available`);
         return [];
       }
 
       const stockPrice = this.estimateStockPrice(options);
-      console.log(`[${ticker}] Estimated stock price: $${stockPrice.toFixed(2)}`);
-      
       const expirationGroups = this.groupByExpiration(options, stockPrice);
-      console.log(`[${ticker}] Found ${expirationGroups.length} valid expiration groups`);
 
       if (expirationGroups.length < 2) {
-        console.log(`[${ticker}] Need at least 2 expirations, only found ${expirationGroups.length}`);
         return [];
       }
 
@@ -167,10 +156,7 @@ export class ForwardFactorScanner {
           back.dte
         );
 
-        console.log(`[${ticker}] ${front.date} (${front.dte}d, ${front.atmIV.toFixed(1)}%) vs ${back.date} (${back.dte}d, ${back.atmIV.toFixed(1)}%) → FF: ${forwardFactor.toFixed(1)}%`);
-
         if (forwardFactor !== 0 && forwardFactor >= minFF && forwardFactor <= maxFF) {
-          console.log(`[${ticker}] ✓ Found opportunity: FF=${forwardFactor.toFixed(1)}%`);
           opportunities.push({
             ticker,
             forward_factor: Math.round(forwardFactor * 100) / 100,
@@ -185,8 +171,6 @@ export class ForwardFactorScanner {
           });
         }
       }
-      
-      console.log(`[${ticker}] Total opportunities found: ${opportunities.length}`);
 
       return opportunities;
     } catch (error) {
@@ -204,18 +188,28 @@ export class ForwardFactorScanner {
     const allOpportunities: Opportunity[] = [];
     const limitedTickers = tickers.slice(0, 30);
 
-    for (let i = 0; i < limitedTickers.length; i++) {
-      const ticker = limitedTickers[i];
+    // Scan 5 tickers in parallel for speed (with unlimited API plan)
+    const batchSize = 5;
+    
+    for (let i = 0; i < limitedTickers.length; i += batchSize) {
+      const batch = limitedTickers.slice(i, i + batchSize);
       
-      if (onProgress) {
-        onProgress(i + 1, limitedTickers.length, ticker);
-      }
+      // Scan batch in parallel
+      const batchPromises = batch.map(async (ticker, index) => {
+        if (onProgress) {
+          onProgress(i + index + 1, limitedTickers.length, ticker);
+        }
+        return this.scanTicker(ticker, minFF, maxFF);
+      });
 
-      const opportunities = await this.scanTicker(ticker, minFF, maxFF);
-      allOpportunities.push(...opportunities);
-      
-      if (i < limitedTickers.length - 1) {
-        await this.polygon.waitForRateLimit(12);
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(opportunities => {
+        allOpportunities.push(...opportunities);
+      });
+
+      // Small delay between batches (0.5s instead of 12s)
+      if (i + batchSize < limitedTickers.length) {
+        await this.polygon.waitForRateLimit(0.5);
       }
     }
 

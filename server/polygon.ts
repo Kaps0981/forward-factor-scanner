@@ -90,14 +90,12 @@ export class PolygonService {
         nextUrl = response.data.next_url;
         pageCount++;
 
-        // Small delay between pagination requests
+        // Tiny delay between pagination requests (unlimited plan)
         if (nextUrl) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
       }
 
-      console.log(`Fetched ${allOptions.length} options for ${ticker} (${pageCount} pages), ${allOptions.filter(o => o.implied_volatility).length} with IV`);
-      
       return allOptions;
     } catch (error) {
       if (axios.isAxiosError(error)) {

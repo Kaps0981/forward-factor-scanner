@@ -21,7 +21,10 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 - **Custom Ticker Input**: Scan specific tickers of your choice
 - **Watchlist Management**: Save and manage ticker lists for quick scanning
 - **Configurable Filters**: Adjust Forward Factor range (-100% to +100%) and top N results
-- **Rate Limiting**: Automatic 12-second delay between tickers to comply with Polygon.io API limits
+- **High-Speed Parallel Scanning**: Scans 5 tickers simultaneously with optimized API usage
+  - 5 tickers: ~4 seconds
+  - 30 tickers: ~30 seconds (12x faster than sequential)
+- **Smart Rate Limiting**: Optimized for Polygon.io unlimited API plans with minimal delays
 
 ### Analysis
 - **Forward Factor Calculation**: Analyzes volatility term structure across option expiration pairs
@@ -64,8 +67,8 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 
 #### Backend (`server/`)
 - `routes.ts`: API endpoints (scan, history, watchlists)
-- `scanner.ts`: Forward Factor calculation engine with ATM filtering
-- `polygon.ts`: Polygon.io API integration service
+- `scanner.ts`: Forward Factor calculation engine with parallel batch processing and ATM filtering
+- `polygon.ts`: Polygon.io API integration service with pagination support for snapshot endpoint
 - `storage.ts`: PostgreSQL storage layer with Drizzle ORM
 - `db.ts`: Database connection configuration
 
