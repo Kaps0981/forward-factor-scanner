@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { type ScanResponse, type Opportunity } from "@shared/schema";
@@ -9,8 +9,10 @@ import { ScanProgress } from "@/components/ScanProgress";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Activity } from "lucide-react";
+import { Activity, Clock, FileText, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default function Scanner() {
   const { toast } = useToast();
@@ -21,6 +23,19 @@ export default function Scanner() {
   const urlParams = new URLSearchParams(window.location.search);
   const urlTickers = urlParams.get('tickers');
   const urlWatchlistName = urlParams.get('watchlist');
+  
+  // Fetch market status
+  const { data: marketStatus } = useQuery<{
+    isOpen: boolean;
+    isTradingDay: boolean;
+    nextTradingDay: string;
+    currentTime: string;
+    upcomingHolidays: string[];
+    message: string;
+  }>({
+    queryKey: ['/api/market-status'],
+    refetchInterval: 60000, // Update every minute
+  });
 
   const scanMutation = useMutation({
     mutationFn: async (params: {
@@ -203,6 +218,51 @@ export default function Scanner() {
 
       <main className="container max-w-7xl mx-auto px-6 py-8">
         <div className="space-y-6">
+          {/* Market Status Card */}
+          {marketStatus && (
+            <Card className="p-4 border-border">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-lg font-medium">{marketStatus.message}</p>
+                    {!marketStatus.isOpen && (
+                      <p className="text-sm text-muted-foreground">
+                        Next trading day: {new Date(marketStatus.nextTradingDay).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {scanResults?.scan_id && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        window.open(`/api/scans/${scanResults.scan_id}/report?format=markdown`, '_blank');
+                      }}
+                      data-testid="button-download-markdown"
+                    >
+                      <FileText className="h-4 w-4 mr-2" />
+                      Markdown Report
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        window.open(`/api/scans/${scanResults.scan_id}/report?format=html`, '_blank');
+                      }}
+                      data-testid="button-download-html"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      HTML Report
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+          
           {urlWatchlistName && (
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
               <p className="text-sm text-primary">

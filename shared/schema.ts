@@ -41,6 +41,7 @@ export type ScanRequest = z.infer<typeof scanRequestSchema>;
 // Scan response
 export const scanResponseSchema = z.object({
   success: z.boolean(),
+  scan_id: z.number().optional(),
   opportunities: z.array(opportunitySchema),
   total_tickers_scanned: z.number(),
   total_opportunities_found: z.number(),
