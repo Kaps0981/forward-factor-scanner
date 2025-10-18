@@ -16,6 +16,12 @@ export const opportunitySchema = z.object({
   forward_vol: z.number(),
   avg_open_interest: z.number().optional(),
   has_earnings_soon: z.boolean().optional(),
+  // Straddle liquidity fields
+  atm_call_oi: z.number().optional(),
+  atm_put_oi: z.number().optional(),
+  straddle_oi: z.number().optional(),
+  oi_put_call_ratio: z.number().optional(),
+  liquidity_score: z.number().min(0).max(10).optional(),
   // Quality analysis fields
   quality_score: z.number().min(0).max(10).optional(),
   is_quality: z.boolean().optional(),

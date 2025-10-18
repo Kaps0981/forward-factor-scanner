@@ -71,10 +71,43 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating -= 2;
   }
   
-  // Filter 6: Liquidity check
-  if (opp.avg_open_interest !== undefined && opp.avg_open_interest !== null && opp.avg_open_interest < 100) {
-    rejectionReasons.push(`Low liquidity: Avg OI = ${opp.avg_open_interest} (prefer >= 100)`);
-    rating -= 1;
+  // Filter 6: Enhanced liquidity check using straddle analysis
+  if (opp.straddle_oi !== undefined && opp.straddle_oi !== null) {
+    // Primary liquidity check: Straddle OI (min 100 for high liquidity)
+    if (opp.straddle_oi < 100) {
+      rejectionReasons.push(`CRITICAL: Insufficient straddle liquidity: Combined OI = ${opp.straddle_oi} (minimum 100 required for effective trading)`);
+      rating -= 3; // Heavy penalty for poor liquidity
+    } else if (opp.straddle_oi < 250) {
+      rejectionReasons.push(`WARNING: Low straddle liquidity: Combined OI = ${opp.straddle_oi} (prefer >= 250 for smoother execution)`);
+      rating -= 1;
+    } else if (opp.straddle_oi >= 1000) {
+      // Excellent liquidity bonus
+      rating += 1;
+    }
+
+    // Check put/call ratio for market sentiment
+    if (opp.oi_put_call_ratio !== undefined && opp.oi_put_call_ratio !== null) {
+      if (opp.oi_put_call_ratio > 2.0) {
+        rejectionReasons.push(`CAUTION: Heavily skewed put interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential downside hedge demand`);
+      } else if (opp.oi_put_call_ratio < 0.5) {
+        rejectionReasons.push(`CAUTION: Heavily skewed call interest (P/C ratio: ${opp.oi_put_call_ratio.toFixed(2)}) - potential upside speculation`);
+      }
+    }
+
+    // Use liquidity score for rating adjustment
+    if (opp.liquidity_score !== undefined && opp.liquidity_score !== null) {
+      if (opp.liquidity_score < 4) {
+        rating -= 2; // Poor liquidity
+      } else if (opp.liquidity_score >= 7) {
+        rating += 1; // Excellent liquidity
+      }
+    }
+  } else if (opp.avg_open_interest !== undefined && opp.avg_open_interest !== null) {
+    // Fallback to average OI if straddle metrics not available
+    if (opp.avg_open_interest < 100) {
+      rejectionReasons.push(`Low liquidity: Avg OI = ${opp.avg_open_interest} (prefer >= 100)`);
+      rating -= 1;
+    }
   }
   
   // Calculate probability based on |FF| magnitude
@@ -116,12 +149,34 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
 export function generateTradingThesis(opp: Opportunity, analysis: QualityAnalysis): string {
   const absFF = Math.abs(opp.forward_factor);
   
+  // Build liquidity assessment string
+  let liquidityAssessment = '';
+  if (opp.straddle_oi !== undefined && opp.liquidity_score !== undefined) {
+    if (opp.liquidity_score >= 7) {
+      liquidityAssessment = `EXCELLENT LIQUIDITY: ATM straddle OI of ${opp.straddle_oi.toLocaleString()} (Calls: ${opp.atm_call_oi?.toLocaleString() || 'N/A'}, Puts: ${opp.atm_put_oi?.toLocaleString() || 'N/A'}) provides deep liquidity for efficient execution. `;
+    } else if (opp.liquidity_score >= 4) {
+      liquidityAssessment = `ADEQUATE LIQUIDITY: ATM straddle OI of ${opp.straddle_oi.toLocaleString()} (Calls: ${opp.atm_call_oi?.toLocaleString() || 'N/A'}, Puts: ${opp.atm_put_oi?.toLocaleString() || 'N/A'}) should allow reasonable fills with careful order management. `;
+    } else {
+      liquidityAssessment = `LIMITED LIQUIDITY WARNING: ATM straddle OI of only ${opp.straddle_oi.toLocaleString()} may result in wide bid-ask spreads and slippage. Consider smaller position sizes. `;
+    }
+    
+    // Add P/C ratio insight if available
+    if (opp.oi_put_call_ratio !== undefined && opp.oi_put_call_ratio !== null) {
+      if (opp.oi_put_call_ratio > 1.5) {
+        liquidityAssessment += `Put-heavy positioning (P/C: ${opp.oi_put_call_ratio.toFixed(2)}) suggests defensive sentiment. `;
+      } else if (opp.oi_put_call_ratio < 0.7) {
+        liquidityAssessment += `Call-heavy positioning (P/C: ${opp.oi_put_call_ratio.toFixed(2)}) indicates bullish speculation. `;
+      }
+    }
+  }
+  
   if (opp.forward_factor > 0) {
     // Positive FF: Front is overpriced
     return `The front-month contract (${opp.front_dte}d) shows implied volatility of ${opp.front_iv.toFixed(1)}%, ` +
            `significantly elevated compared to the forward volatility of ${opp.forward_vol.toFixed(1)}%. ` +
            `This ${absFF.toFixed(1)}% premium suggests the front contract is overpriced relative to the back contract ` +
            `(${opp.back_dte}d at ${opp.back_iv.toFixed(1)}% IV). ` +
+           liquidityAssessment +
            `Consider SELLING front-month volatility through straddles/strangles or buying calendar spreads. ` +
            `Probability of profit: ${analysis.probability}%, Risk/Reward: ${analysis.riskReward}:1`;
   } else {
@@ -130,6 +185,7 @@ export function generateTradingThesis(opp: Opportunity, analysis: QualityAnalysi
            `significantly discounted compared to the forward volatility of ${opp.forward_vol.toFixed(1)}%. ` +
            `This ${absFF.toFixed(1)}% discount suggests the front contract is underpriced relative to the back contract ` +
            `(${opp.back_dte}d at ${opp.back_iv.toFixed(1)}% IV). ` +
+           liquidityAssessment +
            `Consider BUYING front-month volatility through straddles/strangles or selling reverse calendar spreads. ` +
            `Probability of profit: ${analysis.probability}%, Risk/Reward: ${analysis.riskReward}:1`;
   }

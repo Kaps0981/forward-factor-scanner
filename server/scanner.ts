@@ -7,6 +7,11 @@ interface ExpirationGroup {
   options: PolygonOption[];
   atmIV: number;
   avgOpenInterest: number;
+  atmCallOI: number;
+  atmPutOI: number;
+  straddleOI: number;
+  oiPutCallRatio: number;
+  liquidityScore: number;
 }
 
 export const DEFAULT_TICKERS = [
@@ -94,6 +99,58 @@ export class ForwardFactorScanner {
     return Math.round(avgOI);
   }
 
+  private calculateStraddleLiquidity(options: PolygonOption[], stockPrice: number): {
+    atmCallOI: number;
+    atmPutOI: number;
+    straddleOI: number;
+    oiPutCallRatio: number;
+    liquidityScore: number;
+  } {
+    // Find ATM strike closest to stock price
+    const uniqueStrikes = [...new Set(options.map(opt => opt.strike_price))];
+    const atmStrike = uniqueStrikes.reduce((prev, curr) => 
+      Math.abs(curr - stockPrice) < Math.abs(prev - stockPrice) ? curr : prev
+    );
+
+    // Get ATM options at this strike
+    const atmCalls = options.filter(opt => 
+      opt.strike_price === atmStrike && opt.contract_type === 'call'
+    );
+    const atmPuts = options.filter(opt => 
+      opt.strike_price === atmStrike && opt.contract_type === 'put'
+    );
+
+    // Calculate ATM call and put OI
+    const atmCallOI = atmCalls.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / Math.max(1, atmCalls.length);
+    const atmPutOI = atmPuts.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / Math.max(1, atmPuts.length);
+    
+    // Calculate combined straddle OI
+    const straddleOI = atmCallOI + atmPutOI;
+    
+    // Calculate put/call ratio (0 if no calls)
+    const oiPutCallRatio = atmCallOI > 0 ? atmPutOI / atmCallOI : 0;
+    
+    // Calculate liquidity score (1-10 based on straddle OI)
+    let liquidityScore = 1;
+    if (straddleOI >= 10000) liquidityScore = 10;
+    else if (straddleOI >= 5000) liquidityScore = 9;
+    else if (straddleOI >= 2500) liquidityScore = 8;
+    else if (straddleOI >= 1000) liquidityScore = 7;
+    else if (straddleOI >= 500) liquidityScore = 6;
+    else if (straddleOI >= 250) liquidityScore = 5;
+    else if (straddleOI >= 100) liquidityScore = 4;
+    else if (straddleOI >= 50) liquidityScore = 3;
+    else if (straddleOI >= 25) liquidityScore = 2;
+    
+    return {
+      atmCallOI: Math.round(atmCallOI),
+      atmPutOI: Math.round(atmPutOI),
+      straddleOI: Math.round(straddleOI),
+      oiPutCallRatio: Math.round(oiPutCallRatio * 100) / 100,
+      liquidityScore
+    };
+  }
+
   private groupByExpiration(options: PolygonOption[], stockPrice: number): ExpirationGroup[] {
     const expirations = new Map<string, PolygonOption[]>();
 
@@ -111,9 +168,21 @@ export class ForwardFactorScanner {
       const dte = this.calculateDTE(date);
       const atmIV = this.calculateATM_IV(opts, stockPrice);
       const avgOpenInterest = this.calculateAvgOpenInterest(opts, stockPrice);
+      const straddleLiquidity = this.calculateStraddleLiquidity(opts, stockPrice);
       
       if (atmIV > 0 && opts.length >= 3) {
-        groups.push({ date, dte, options: opts, atmIV, avgOpenInterest });
+        groups.push({ 
+          date, 
+          dte, 
+          options: opts, 
+          atmIV, 
+          avgOpenInterest,
+          atmCallOI: straddleLiquidity.atmCallOI,
+          atmPutOI: straddleLiquidity.atmPutOI,
+          straddleOI: straddleLiquidity.straddleOI,
+          oiPutCallRatio: straddleLiquidity.oiPutCallRatio,
+          liquidityScore: straddleLiquidity.liquidityScore
+        });
       }
     });
 
@@ -185,6 +254,12 @@ export class ForwardFactorScanner {
             forward_vol: Math.round(forwardVol * 100) / 100,
             avg_open_interest: front.avgOpenInterest,
             has_earnings_soon: false, // Will be populated by routes.ts
+            // Straddle liquidity metrics from front expiration
+            atm_call_oi: front.atmCallOI,
+            atm_put_oi: front.atmPutOI,
+            straddle_oi: front.straddleOI,
+            oi_put_call_ratio: front.oiPutCallRatio,
+            liquidity_score: front.liquidityScore,
           });
         }
       }

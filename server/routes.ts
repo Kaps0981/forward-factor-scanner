@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const minFF = min_ff ?? -100;
       const maxFF = max_ff ?? 100;
       const topN = top_n ?? 20;
-      const minOI = min_open_interest ?? 0;
+      const minOI = min_open_interest ?? 100; // Default to 100 for high liquidity
 
       const scanner = new ForwardFactorScanner(POLYGON_API_KEY);
       const polygonService = new PolygonService(POLYGON_API_KEY);
@@ -242,9 +242,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      // Filter by liquidity if requested
+      // Filter by liquidity if requested (prefer straddle_oi over avg_open_interest)
       const filteredOpportunities = minOI > 0 
-        ? opportunities.filter(opp => (opp.avg_open_interest || 0) >= minOI)
+        ? opportunities.filter(opp => {
+            // Use straddle_oi if available, fallback to avg_open_interest
+            const oi = opp.straddle_oi !== undefined ? opp.straddle_oi : (opp.avg_open_interest || 0);
+            return oi >= minOI;
+          })
         : opportunities;
 
       // Check for earnings in parallel (batch unique tickers)
