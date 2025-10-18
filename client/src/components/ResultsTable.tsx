@@ -143,13 +143,13 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         </div>
       ) : (
         <div className="border border-card-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto max-h-[600px]">
+        <div className="overflow-auto max-h-[600px] relative">
           <Table>
             <TableHeader className="sticky top-0 z-20 bg-background">
               <TableRow className="hover:bg-transparent border-b border-card-border">
-                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-8 sticky left-0 z-30 bg-background border-r border-card-border"></TableHead>
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold sticky left-0 z-30 bg-background"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-30 bg-background"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
@@ -213,7 +213,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       className="hover-elevate"
                       data-testid={`row-opportunity-${index}`}
                     >
-                      <TableCell className="w-8">
+                      <TableCell className="w-8 sticky left-0 z-10 bg-background border-r border-card-border">
                         {hasWarnings && (
                           <Button
                             variant="ghost"
@@ -230,7 +230,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium tracking-wide sticky left-0 z-10 bg-background" data-testid={`text-ticker-${index}`}>
+                      <TableCell className="font-medium tracking-wide sticky left-8 z-10 bg-background" data-testid={`text-ticker-${index}`}>
                         {opp.ticker}
                       </TableCell>
                       <TableCell 
@@ -353,7 +353,9 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         className="bg-muted/30"
                         data-testid={`row-warnings-${index}`}
                       >
-                        <TableCell colSpan={17} className="p-4">
+                        <TableCell className="sticky left-0 z-10 bg-muted/30 border-r border-card-border"></TableCell>
+                        <TableCell className="sticky left-8 z-10 bg-muted/30"></TableCell>
+                        <TableCell colSpan={15} className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Info className="h-4 w-4 text-blue-500" />
