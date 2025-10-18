@@ -12,6 +12,8 @@ export interface PolygonOption {
   last_trade?: {
     price: number;
   };
+  open_interest?: number;
+  day_volume?: number;
 }
 
 export interface PolygonSnapshotOption {
@@ -30,6 +32,10 @@ export interface PolygonSnapshotOption {
   last_quote?: {
     bid?: number;
     ask?: number;
+  };
+  open_interest?: number;
+  day?: {
+    volume?: number;
   };
 }
 
@@ -84,6 +90,8 @@ export class PolygonService {
             implied_volatility: opt.implied_volatility,
             delta: opt.greeks?.delta,
             contract_type: (opt.details!.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
+            open_interest: opt.open_interest,
+            day_volume: opt.day?.volume,
           }));
 
         allOptions.push(...pageOptions);
@@ -126,5 +134,33 @@ export class PolygonService {
 
   async waitForRateLimit(seconds: number = 12): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  }
+
+  async checkEarningsSoon(ticker: string, daysThreshold: number = 7): Promise<boolean> {
+    try {
+      const url = `${POLYGON_BASE_URL}/v3/reference/tickers/${ticker}`;
+      const response = await axios.get(url, {
+        params: {
+          apiKey: this.apiKey,
+        },
+        timeout: 10000,
+      });
+
+      // Check if there's a next earnings date
+      const earningsDate = response.data.results?.earnings_announcement?.next_earnings_date;
+      if (!earningsDate) {
+        return false;
+      }
+
+      // Calculate days until earnings
+      const earningsTime = new Date(earningsDate).getTime();
+      const today = new Date().getTime();
+      const daysUntil = Math.ceil((earningsTime - today) / (1000 * 60 * 60 * 24));
+
+      return daysUntil >= 0 && daysUntil <= daysThreshold;
+    } catch (error) {
+      // If API call fails or ticker details unavailable, assume no earnings soon
+      return false;
+    }
   }
 }

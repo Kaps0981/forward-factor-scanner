@@ -2,7 +2,13 @@ import { useState, useMemo } from "react";
 import { type Opportunity } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronUp, ChevronDown, Download } from "lucide-react";
+import { ChevronUp, ChevronDown, Download, AlertTriangle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -78,12 +84,12 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         </div>
       ) : (
         <div className="border border-card-border rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[600px]">
           <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
+            <TableHeader className="sticky top-0 z-20 bg-background">
+              <TableRow className="hover:bg-transparent border-b border-card-border">
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-0 z-30 bg-background"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
@@ -116,6 +122,8 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                 </TableHead>
                 <TableHead className="text-right font-semibold">Back IV</TableHead>
                 <TableHead className="text-right font-semibold">Forward Vol</TableHead>
+                <TableHead className="text-right font-semibold">Avg OI</TableHead>
+                <TableHead className="text-center font-semibold">Alerts</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,7 +133,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   className="hover-elevate"
                   data-testid={`row-opportunity-${index}`}
                 >
-                  <TableCell className="font-medium tracking-wide" data-testid={`text-ticker-${index}`}>
+                  <TableCell className="font-medium tracking-wide sticky left-0 z-10 bg-background" data-testid={`text-ticker-${index}`}>
                     {opp.ticker}
                   </TableCell>
                   <TableCell 
@@ -176,6 +184,23 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums" data-testid={`text-forward-vol-${index}`}>
                     {opp.forward_vol}%
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums" data-testid={`text-avg-oi-${index}`}>
+                    {opp.avg_open_interest || '—'}
+                  </TableCell>
+                  <TableCell className="text-center" data-testid={`cell-alerts-${index}`}>
+                    {opp.has_earnings_soon && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertTriangle className="h-4 w-4 text-yellow-500 inline" data-testid={`icon-earnings-warning-${index}`} />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Earnings within 7 days</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

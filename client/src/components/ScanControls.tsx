@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Play } from "lucide-react";
 
 interface ScanControlsProps {
@@ -13,6 +14,8 @@ interface ScanControlsProps {
     minFF: number;
     maxFF: number;
     topN: number;
+    minOpenInterest?: number;
+    enableEmailAlerts?: boolean;
   }) => void;
   isScanning: boolean;
   initialTickers?: string;
@@ -25,13 +28,22 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [minFF, setMinFF] = useState(-100);
   const [maxFF, setMaxFF] = useState(100);
   const [topN, setTopN] = useState(20);
+  const [minOpenInterest, setMinOpenInterest] = useState(0);
+  const [enableEmailAlerts, setEnableEmailAlerts] = useState(false);
 
   const handleScan = () => {
     const tickers = scanType === "custom" && customTickers
       ? customTickers.split(",").map(t => t.trim().toUpperCase()).filter(Boolean)
       : undefined;
 
-    onScan({ tickers, minFF, maxFF, topN });
+    onScan({ 
+      tickers, 
+      minFF, 
+      maxFF, 
+      topN,
+      minOpenInterest: minOpenInterest > 0 ? minOpenInterest : undefined,
+      enableEmailAlerts,
+    });
   };
 
   return (
@@ -136,6 +148,47 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                 data-testid="slider-top-n"
               />
             </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="min-oi" className="text-sm font-medium">
+                  Min Open Interest
+                </Label>
+                <span className="text-sm font-mono text-muted-foreground">
+                  {minOpenInterest === 0 ? 'None' : minOpenInterest}
+                </span>
+              </div>
+              <Slider
+                id="min-oi"
+                min={0}
+                max={500}
+                step={50}
+                value={[minOpenInterest]}
+                onValueChange={([v]) => setMinOpenInterest(v)}
+                className="mt-2"
+                data-testid="slider-min-oi"
+              />
+              <p className="text-xs text-muted-foreground">
+                Filter by ATM option liquidity
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-4 border border-card-border rounded-lg">
+            <div className="space-y-1">
+              <Label htmlFor="email-alerts" className="text-sm font-medium">
+                Email Notifications
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Get alerts for high |FF| opportunities
+              </p>
+            </div>
+            <Switch
+              id="email-alerts"
+              checked={enableEmailAlerts}
+              onCheckedChange={setEnableEmailAlerts}
+              data-testid="switch-email-alerts"
+            />
           </div>
 
           <Button

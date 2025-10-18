@@ -6,6 +6,7 @@ interface ExpirationGroup {
   dte: number;
   options: PolygonOption[];
   atmIV: number;
+  avgOpenInterest: number;
 }
 
 export const DEFAULT_TICKERS = [
@@ -80,6 +81,19 @@ export class ForwardFactorScanner {
     return avgIV * 100;
   }
 
+  private calculateAvgOpenInterest(options: PolygonOption[], stockPrice: number): number {
+    const atmOptions = options.filter(opt => 
+      this.isATM(opt.strike_price, stockPrice) && opt.open_interest
+    );
+
+    if (atmOptions.length === 0) {
+      return 0;
+    }
+
+    const avgOI = atmOptions.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / atmOptions.length;
+    return Math.round(avgOI);
+  }
+
   private groupByExpiration(options: PolygonOption[], stockPrice: number): ExpirationGroup[] {
     const expirations = new Map<string, PolygonOption[]>();
 
@@ -96,9 +110,10 @@ export class ForwardFactorScanner {
     expirations.forEach((opts, date) => {
       const dte = this.calculateDTE(date);
       const atmIV = this.calculateATM_IV(opts, stockPrice);
+      const avgOpenInterest = this.calculateAvgOpenInterest(opts, stockPrice);
       
       if (atmIV > 0 && opts.length >= 3) {
-        groups.push({ date, dte, options: opts, atmIV });
+        groups.push({ date, dte, options: opts, atmIV, avgOpenInterest });
       }
     });
 
@@ -168,6 +183,8 @@ export class ForwardFactorScanner {
             back_dte: back.dte,
             back_iv: Math.round(back.atmIV * 100) / 100,
             forward_vol: Math.round(forwardVol * 100) / 100,
+            avg_open_interest: front.avgOpenInterest,
+            has_earnings_soon: false, // Will be populated by routes.ts
           });
         }
       }

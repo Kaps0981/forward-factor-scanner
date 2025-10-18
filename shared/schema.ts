@@ -14,6 +14,8 @@ export const opportunitySchema = z.object({
   back_dte: z.number(),
   back_iv: z.number(),
   forward_vol: z.number(),
+  avg_open_interest: z.number().optional(),
+  has_earnings_soon: z.boolean().optional(),
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;
@@ -24,6 +26,8 @@ export const scanRequestSchema = z.object({
   min_ff: z.number().min(-100).max(100).optional(),
   max_ff: z.number().min(-100).max(100).optional(),
   top_n: z.number().min(1).max(100).optional(),
+  min_open_interest: z.number().min(0).optional(),
+  enable_email_alerts: z.boolean().optional(),
 });
 
 export type ScanRequest = z.infer<typeof scanRequestSchema>;
@@ -86,6 +90,8 @@ export const opportunities = pgTable("opportunities", {
   back_dte: integer("back_dte").notNull(),
   back_iv: doublePrecision("back_iv").notNull(),
   forward_vol: doublePrecision("forward_vol").notNull(),
+  avg_open_interest: integer("avg_open_interest"),
+  has_earnings_soon: varchar("has_earnings_soon", { length: 5 }),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });

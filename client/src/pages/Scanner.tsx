@@ -28,6 +28,8 @@ export default function Scanner() {
       minFF: number;
       maxFF: number;
       topN: number;
+      minOpenInterest?: number;
+      enableEmailAlerts?: boolean;
     }) => {
       const tickersToScan = params.tickers || [];
       const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 30) : 30;
@@ -61,6 +63,8 @@ export default function Scanner() {
           min_ff: params.minFF,
           max_ff: params.maxFF,
           top_n: params.topN,
+          min_open_interest: params.minOpenInterest,
+          enable_email_alerts: params.enableEmailAlerts,
         });
 
         let data: ScanResponse;
@@ -104,6 +108,8 @@ export default function Scanner() {
     minFF: number;
     maxFF: number;
     topN: number;
+    minOpenInterest?: number;
+    enableEmailAlerts?: boolean;
   }) => {
     scanMutation.mutate(params);
   };
@@ -122,6 +128,8 @@ export default function Scanner() {
       "back_dte",
       "back_iv",
       "forward_vol",
+      "avg_open_interest",
+      "has_earnings_soon",
     ];
 
     const rows = scanResults.opportunities.map((opp) => [

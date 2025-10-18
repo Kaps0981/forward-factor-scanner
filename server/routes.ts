@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { ForwardFactorScanner, DEFAULT_TICKERS } from "./scanner";
 import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
 import { storage } from "./storage";
+import { PolygonService } from "./polygon";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -146,13 +147,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { tickers, min_ff, max_ff, top_n } = validationResult.data;
+      const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts } = validationResult.data;
       const tickersToScan = tickers && tickers.length > 0 ? tickers : DEFAULT_TICKERS;
       const minFF = min_ff ?? -100;
       const maxFF = max_ff ?? 100;
       const topN = top_n ?? 20;
+      const minOI = min_open_interest ?? 0;
 
       const scanner = new ForwardFactorScanner(POLYGON_API_KEY);
+      const polygonService = new PolygonService(POLYGON_API_KEY);
       
       const opportunities = await scanner.scanMultiple(
         tickersToScan.slice(0, 30),
@@ -163,7 +166,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      const limitedOpportunities = opportunities.slice(0, topN);
+      // Filter by liquidity if requested
+      const filteredOpportunities = minOI > 0 
+        ? opportunities.filter(opp => (opp.avg_open_interest || 0) >= minOI)
+        : opportunities;
+
+      // Check for earnings in parallel (batch unique tickers)
+      const uniqueTickers = Array.from(new Set(filteredOpportunities.map(opp => opp.ticker)));
+      const earningsChecks = await Promise.all(
+        uniqueTickers.map(async ticker => {
+          const hasEarnings = await polygonService.checkEarningsSoon(ticker, 7);
+          return { ticker, hasEarnings };
+        })
+      );
+      
+      const earningsMap = new Map(earningsChecks.map(e => [e.ticker, e.hasEarnings]));
+      
+      // Add earnings flag to opportunities
+      const opportunitiesWithEarnings = filteredOpportunities.map(opp => ({
+        ...opp,
+        has_earnings_soon: earningsMap.get(opp.ticker) || false,
+      }));
+
+      const limitedOpportunities = opportunitiesWithEarnings.slice(0, topN);
 
       // Save scan to database
       const scan = await storage.createScan({
@@ -189,6 +214,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           back_dte: opp.back_dte,
           back_iv: opp.back_iv,
           forward_vol: opp.forward_vol,
+          avg_open_interest: opp.avg_open_interest,
+          has_earnings_soon: opp.has_earnings_soon ? 'true' : 'false',
         }));
         
         await storage.createOpportunities(opportunityRecords);
