@@ -154,14 +154,14 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           <p className="text-muted-foreground">No opportunities found. Run a scan to get started.</p>
         </div>
       ) : (
-        <div className="border border-card-border rounded-lg overflow-hidden">
-        <div className="relative max-h-[600px] overflow-auto">
+        <div className="border border-card-border rounded-lg">
+        <div className="relative max-h-[600px] overflow-auto rounded-lg">
           <Table className="relative">
-            <TableHeader className="sticky top-0 z-40 bg-background shadow-sm">
-              <TableRow className="hover:bg-transparent border-b border-card-border">
-                <TableHead className="w-8 sticky left-0 z-50 bg-background border-r border-card-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"></TableHead>
+            <TableHeader className="sticky top-0 z-50 bg-background border-b border-card-border">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-8 sticky left-0 z-50 bg-background border-r border-card-border"></TableHead>
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-50 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-50 bg-background"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
@@ -251,7 +251,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       className="hover-elevate"
                       data-testid={`row-opportunity-${index}`}
                     >
-                      <TableCell className="w-8 sticky left-0 z-20 bg-background border-r border-card-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+                      <TableCell className="w-8 sticky left-0 z-10 bg-background border-r border-card-border">
                         {hasWarnings && (
                           <Button
                             variant="ghost"
@@ -268,7 +268,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                           </Button>
                         )}
                       </TableCell>
-                      <TableCell className="font-medium tracking-wide sticky left-8 z-20 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" data-testid={`text-ticker-${index}`}>
+                      <TableCell className="font-medium tracking-wide sticky left-8 z-10 bg-background" data-testid={`text-ticker-${index}`}>
                         {opp.ticker}
                       </TableCell>
                       <TableCell 
