@@ -132,21 +132,27 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating += 1; // Good signal
   }
   
-  // Filter 2: Reject inverted structures with earnings (common false signal)
-  if (isInverted && opp.has_earnings_soon) {
-    if (absFF < 40) {
-      rejectionReasons.push(
-        `FALSE SIGNAL: Inverted term structure (front IV ${opp.front_iv.toFixed(1)}% > back IV ${opp.back_iv.toFixed(1)}%) ` +
-        `with earnings soon. This typically indicates post-earnings IV decay, not genuine mispricing.`
-      );
-      rating = 0; // Reject completely
-    }
-  } else if (isInverted && absFF < 50) {
-    // Inverted without earnings still suspicious
+  // Filter 2: IVR-based filtering (strictly following the paper)
+  // Paper suggests using IVR to determine regime and filter accordingly
+  if (opp.signal === 'SELL' && avgIVR < 50) {
+    // SELL signals work better in high IVR environments
     rejectionReasons.push(
-      `WARNING: Inverted term structure without confirmed catalyst. Verify no events between expirations.`
+      `IVR too low for SELL signal: ${avgIVR.toFixed(0)} (prefer IVR > 50 for selling premium)`
     );
-    rating -= 1;
+    rating -= 2;
+  } else if (opp.signal === 'BUY' && avgIVR > 70) {
+    // BUY signals work better in low-to-normal IVR environments
+    rejectionReasons.push(
+      `IVR too high for BUY signal: ${avgIVR.toFixed(0)} (prefer IVR < 70 for buying premium)`
+    );
+    rating -= 2;
+  }
+  
+  // Boost rating for ideal IVR conditions per the paper
+  if (opp.signal === 'SELL' && avgIVR > 70) {
+    rating += 2; // Ideal high vol regime for selling
+  } else if (opp.signal === 'BUY' && avgIVR < 30) {
+    rating += 2; // Ideal low vol regime for buying
   }
   
   // Filter 3: DTE range (optimal 7-180 days)
