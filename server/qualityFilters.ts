@@ -155,7 +155,66 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating += 2; // Ideal low vol regime for buying
   }
   
-  // Filter 3: DTE range (optimal 7-180 days)
+  // Filter 3: Enhanced OI-based filtering (per paper methodology)
+  // Determine optimal leg selection based on signal and OI distribution
+  const callOI = opp.atm_call_oi || 0;
+  const putOI = opp.atm_put_oi || 0;
+  const straddleOI = opp.straddle_oi || 0;
+  const putCallRatio = opp.oi_put_call_ratio || 1.0;
+  
+  // Strategy selection based on OI distribution and signal type
+  if (opp.signal === 'SELL') {
+    // For SELL signals, prefer straddles in balanced markets, single leg in skewed markets
+    if (putCallRatio > 2.0) {
+      // Heavy put skew - consider selling puts only
+      rejectionReasons.push(`STRATEGY: Heavy put skew (P/C: ${putCallRatio.toFixed(2)}) - consider selling puts only instead of straddle`);
+      if (putOI < 100) {
+        rejectionReasons.push(`CRITICAL: Insufficient put OI for single-leg strategy: ${putOI} (need >= 100)`);
+        rating -= 3;
+      }
+    } else if (putCallRatio < 0.5) {
+      // Heavy call skew - consider selling calls only
+      rejectionReasons.push(`STRATEGY: Heavy call skew (P/C: ${putCallRatio.toFixed(2)}) - consider selling calls only instead of straddle`);
+      if (callOI < 100) {
+        rejectionReasons.push(`CRITICAL: Insufficient call OI for single-leg strategy: ${callOI} (need >= 100)`);
+        rating -= 3;
+      }
+    } else {
+      // Balanced market - use straddle
+      if (straddleOI < 200) {
+        rejectionReasons.push(`CRITICAL: Insufficient straddle OI for SELL signal: ${straddleOI} (need >= 200 for straddles)`);
+        rating -= 3;
+      }
+    }
+  } else { // BUY signal
+    // For BUY signals, prefer straddles for volatility expansion plays
+    if (straddleOI < 200) {
+      rejectionReasons.push(`CRITICAL: Insufficient straddle OI for BUY signal: ${straddleOI} (need >= 200 for straddles)`);
+      rating -= 3;
+    }
+    
+    // Check if directional bias suggests single leg
+    if (putCallRatio > 3.0 && putOI >= 150) {
+      rejectionReasons.push(`ALTERNATIVE: Extreme put skew (P/C: ${putCallRatio.toFixed(2)}) - consider buying puts only for directional play`);
+    } else if (putCallRatio < 0.33 && callOI >= 150) {
+      rejectionReasons.push(`ALTERNATIVE: Extreme call skew (P/C: ${putCallRatio.toFixed(2)}) - consider buying calls only for directional play`);
+    }
+  }
+  
+  // Filter 4: Minimum individual leg OI requirements
+  if (callOI < 50 && putOI < 50) {
+    rejectionReasons.push(`REJECT: Both legs have insufficient OI - Calls: ${callOI}, Puts: ${putOI} (need at least one >= 50)`);
+    rating = 0; // Complete rejection
+  }
+  
+  // Boost rating for excellent OI conditions
+  if (straddleOI >= 1000 && Math.min(callOI, putOI) >= 200) {
+    rating += 2; // Excellent liquidity for any strategy
+  } else if (straddleOI >= 500 && Math.min(callOI, putOI) >= 100) {
+    rating += 1; // Good liquidity
+  }
+  
+  // Filter 5: DTE range (optimal 7-180 days)
   if (opp.front_dte < 7) {
     rejectionReasons.push(`Front DTE too short: ${opp.front_dte} days (need >= 7 for theta management)`);
     rating -= 2;
@@ -164,7 +223,7 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating -= 1;
   }
   
-  // Filter 4: IV range sanity check
+  // Filter 6: IV range sanity check
   if (opp.front_iv < 15) {
     rejectionReasons.push(`Front IV too low: ${opp.front_iv.toFixed(1)}% (need >= 15% for meaningful edge)`);
     rating -= 1;
@@ -173,14 +232,14 @@ export function analyzeOpportunityQuality(opp: Opportunity): QualityAnalysis {
     rating -= 1;
   }
   
-  // Filter 5: DTE spread (need reasonable time between expirations)
+  // Filter 7: DTE spread (need reasonable time between expirations)
   const dteDiff = opp.back_dte - opp.front_dte;
   if (dteDiff < 3) {
     rejectionReasons.push(`DTE spread too narrow: ${dteDiff} days (need >= 3 for calendar spreads)`);
     rating -= 2;
   }
   
-  // Filter 6: Enhanced liquidity check using BOTH front and back month straddle analysis
+  // Filter 8: Enhanced liquidity check using BOTH front and back month straddle analysis
   const frontOI = opp.straddle_oi || 0;
   const backOI = opp.back_straddle_oi || 0;
   const minOI = Math.min(frontOI, backOI);
