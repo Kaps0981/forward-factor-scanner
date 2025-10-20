@@ -45,6 +45,9 @@ export default function Scanner() {
       topN: number;
       minOpenInterest?: number;
       enableEmailAlerts?: boolean;
+      useMarketCap?: boolean;
+      minMarketCap?: number;
+      maxMarketCap?: number;
     }) => {
       const tickersToScan = params.tickers || [];
       const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 30) : 30;
@@ -80,6 +83,9 @@ export default function Scanner() {
           top_n: params.topN,
           min_open_interest: params.minOpenInterest,
           enable_email_alerts: params.enableEmailAlerts,
+          use_market_cap: params.useMarketCap,
+          min_market_cap: params.minMarketCap,
+          max_market_cap: params.maxMarketCap,
         });
 
         let data: ScanResponse;
@@ -125,6 +131,9 @@ export default function Scanner() {
     topN: number;
     minOpenInterest?: number;
     enableEmailAlerts?: boolean;
+    useMarketCap?: boolean;
+    minMarketCap?: number;
+    maxMarketCap?: number;
   }) => {
     scanMutation.mutate(params);
   };
