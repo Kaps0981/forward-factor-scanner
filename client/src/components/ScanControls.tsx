@@ -16,6 +16,9 @@ interface ScanControlsProps {
     topN: number;
     minOpenInterest?: number;
     enableEmailAlerts?: boolean;
+    useMarketCap?: boolean;
+    minMarketCap?: number;
+    maxMarketCap?: number;
   }) => void;
   isScanning: boolean;
   initialTickers?: string;
@@ -23,13 +26,15 @@ interface ScanControlsProps {
 }
 
 export function ScanControls({ onScan, isScanning, initialTickers, watchlistName }: ScanControlsProps) {
-  const [scanType, setScanType] = useState<"default" | "custom">(initialTickers ? "custom" : "default");
+  const [scanType, setScanType] = useState<"default" | "custom" | "marketcap">(initialTickers ? "custom" : "default");
   const [customTickers, setCustomTickers] = useState(initialTickers || "");
-  const [minFF, setMinFF] = useState(-100);
-  const [maxFF, setMaxFF] = useState(100);
+  const [minFF, setMinFF] = useState(-Infinity);
+  const [maxFF, setMaxFF] = useState(Infinity);
   const [topN, setTopN] = useState(20);
   const [minOpenInterest, setMinOpenInterest] = useState(200);
   const [enableEmailAlerts, setEnableEmailAlerts] = useState(false);
+  const [minMarketCap, setMinMarketCap] = useState(2);
+  const [maxMarketCap, setMaxMarketCap] = useState(15);
 
   const handleScan = () => {
     const tickers = scanType === "custom" && customTickers
@@ -43,6 +48,9 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
       topN,
       minOpenInterest: minOpenInterest > 0 ? minOpenInterest : undefined,
       enableEmailAlerts,
+      useMarketCap: scanType === "marketcap",
+      minMarketCap: scanType === "marketcap" ? minMarketCap : undefined,
+      maxMarketCap: scanType === "marketcap" ? maxMarketCap : undefined,
     });
   };
 
@@ -53,13 +61,16 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
           <div>
             <h2 className="text-lg font-semibold mb-4">Scan Configuration</h2>
             
-            <Tabs value={scanType} onValueChange={(v) => setScanType(v as "default" | "custom")}>
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+            <Tabs value={scanType} onValueChange={(v) => setScanType(v as "default" | "custom" | "marketcap")}>
+              <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="default" data-testid="tab-default-stocks">
                   Default Stocks
                 </TabsTrigger>
                 <TabsTrigger value="custom" data-testid="tab-custom-tickers">
                   Custom Tickers
+                </TabsTrigger>
+                <TabsTrigger value="marketcap" data-testid="tab-market-cap">
+                  By Market Cap
                 </TabsTrigger>
               </TabsList>
               
@@ -85,6 +96,49 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   Maximum 30 tickers per scan
                 </p>
               </TabsContent>
+              
+              <TabsContent value="marketcap" className="mt-0 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Scan stocks by market capitalization range (in billions)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="min-cap" className="text-sm font-medium">
+                      Min Market Cap ($B)
+                    </Label>
+                    <Input
+                      id="min-cap"
+                      type="number"
+                      min="0.1"
+                      max="1000"
+                      step="0.5"
+                      value={minMarketCap}
+                      onChange={(e) => setMinMarketCap(Number(e.target.value))}
+                      className="font-mono"
+                      data-testid="input-min-market-cap"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="max-cap" className="text-sm font-medium">
+                      Max Market Cap ($B)
+                    </Label>
+                    <Input
+                      id="max-cap"
+                      type="number"
+                      min="0.1"
+                      max="1000"
+                      step="0.5"
+                      value={maxMarketCap}
+                      onChange={(e) => setMaxMarketCap(Number(e.target.value))}
+                      className="font-mono"
+                      data-testid="input-max-market-cap"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Recommended: $2B - $15B for quality mid-cap stocks
+                </p>
+              </TabsContent>
             </Tabs>
           </div>
 
@@ -93,38 +147,16 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium">Forward Factor Range</Label>
                 <span className="text-sm font-mono text-muted-foreground">
-                  {minFF}% to {maxFF}%
+                  No Limits Applied
                 </span>
               </div>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="min-ff" className="text-xs text-muted-foreground">
-                    Minimum FF
-                  </Label>
-                  <Slider
-                    id="min-ff"
-                    min={-100}
-                    max={0}
-                    step={5}
-                    value={[minFF]}
-                    onValueChange={([v]) => setMinFF(v)}
-                    data-testid="slider-min-ff"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="max-ff" className="text-xs text-muted-foreground">
-                    Maximum FF
-                  </Label>
-                  <Slider
-                    id="max-ff"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={[maxFF]}
-                    onValueChange={([v]) => setMaxFF(v)}
-                    data-testid="slider-max-ff"
-                  />
-                </div>
+              <div className="bg-muted/50 rounded-md p-3">
+                <p className="text-xs text-muted-foreground">
+                  ℹ️ FF percentage filtering has been removed. The scanner will find all opportunities regardless of FF magnitude.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Quality filters and IVR regime filtering are applied automatically to find the best trades.
+                </p>
               </div>
             </div>
 

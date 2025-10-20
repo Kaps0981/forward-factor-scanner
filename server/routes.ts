@@ -8,6 +8,7 @@ import { sendHighFFAlert } from "./email";
 import { analyzeOpportunityQuality, generateTradingThesis, calculatePositionSize, generateExecutionWarnings } from "./qualityFilters";
 import { generateHTMLReport, generateMarkdownReport } from "./reportGenerator";
 import { TradingCalendar } from "./tradingCalendar";
+import { MarketCapFilter } from "./marketCapFilter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -23,6 +24,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       tickers: DEFAULT_TICKERS,
     });
+  });
+
+  // Get stocks by market cap (2-15B default)
+  app.get("/api/stocks-by-market-cap", async (req, res) => {
+    try {
+      if (!POLYGON_API_KEY) {
+        return res.status(500).json({
+          error: "Polygon API key not configured",
+        });
+      }
+      
+      const minCap = parseFloat(req.query.min_cap as string || '2');
+      const maxCap = parseFloat(req.query.max_cap as string || '15');
+      const limit = parseInt(req.query.limit as string || '50');
+      
+      const marketCapFilter = new MarketCapFilter(POLYGON_API_KEY);
+      const tickers = await marketCapFilter.getStocksByMarketCap(minCap, maxCap, limit);
+      
+      res.json({
+        tickers,
+        count: tickers.length,
+        market_cap_range: `$${minCap}B - $${maxCap}B`
+      });
+    } catch (error) {
+      console.error("Error fetching stocks by market cap:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch stocks by market cap",
+      });
+    }
   });
 
   // Scan history endpoints
@@ -229,9 +259,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts } = validationResult.data;
-      const tickersToScan = tickers && tickers.length > 0 ? tickers : DEFAULT_TICKERS;
-      const minFF = min_ff ?? -100;
-      const maxFF = max_ff ?? 100;
+      
+      // Check if we should use market cap filtering
+      const useMarketCap = req.body.use_market_cap === true;
+      let tickersToScan: string[];
+      
+      if (tickers && tickers.length > 0) {
+        // Use provided tickers
+        tickersToScan = tickers;
+      } else if (useMarketCap) {
+        // Get stocks by market cap (2-15B)
+        const marketCapFilter = new MarketCapFilter(POLYGON_API_KEY);
+        const minCap = req.body.min_market_cap || 2;
+        const maxCap = req.body.max_market_cap || 15;
+        tickersToScan = await marketCapFilter.getStocksByMarketCap(minCap, maxCap, 50);
+        console.log(`Using ${tickersToScan.length} stocks with market cap $${minCap}B-$${maxCap}B`);
+      } else {
+        // Use default tickers
+        tickersToScan = DEFAULT_TICKERS;
+      }
+      const minFF = min_ff ?? -Infinity;
+      const maxFF = max_ff ?? Infinity;
       const topN = top_n ?? 20;
       const minOI = min_open_interest ?? 200; // Default to 200 for high liquidity
 
@@ -349,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           back_straddle_oi: opp.back_straddle_oi,
           back_liquidity_score: opp.back_liquidity_score,
           // Position sizing and warnings
-          position_size_recommendation: opp.position_size_recommendation,
+          position_size_recommendation: String(opp.position_size_recommendation),
           execution_warnings: opp.execution_warnings,
           // Quality analysis fields
           quality_score: opp.quality_score,
