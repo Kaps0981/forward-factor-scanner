@@ -48,8 +48,8 @@ export type Opportunity = z.infer<typeof opportunitySchema>;
 // Scan request payload
 export const scanRequestSchema = z.object({
   tickers: z.array(z.string()).optional(),
-  min_ff: z.number().min(-100).max(100).optional(),
-  max_ff: z.number().min(-100).max(100).optional(),
+  min_ff: z.number().optional(), // No limits - allow any FF value
+  max_ff: z.number().optional(), // No limits - allow any FF value
   top_n: z.number().min(1).max(100).optional(),
   min_open_interest: z.number().min(0).optional(),
   enable_email_alerts: z.boolean().optional(),

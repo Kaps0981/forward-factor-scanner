@@ -28,8 +28,8 @@ interface ScanControlsProps {
 export function ScanControls({ onScan, isScanning, initialTickers, watchlistName }: ScanControlsProps) {
   const [scanType, setScanType] = useState<"default" | "custom" | "marketcap">(initialTickers ? "custom" : "default");
   const [customTickers, setCustomTickers] = useState(initialTickers || "");
-  const [minFF, setMinFF] = useState(-Infinity);
-  const [maxFF, setMaxFF] = useState(Infinity);
+  const [minFF, setMinFF] = useState(-999999);
+  const [maxFF, setMaxFF] = useState(999999);
   const [topN, setTopN] = useState(20);
   const [minOpenInterest, setMinOpenInterest] = useState(200);
   const [enableEmailAlerts, setEnableEmailAlerts] = useState(false);

@@ -278,8 +278,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use default tickers
         tickersToScan = DEFAULT_TICKERS;
       }
-      const minFF = min_ff ?? -Infinity;
-      const maxFF = max_ff ?? Infinity;
+      // Convert large values to Infinity for unlimited scanning
+      const minFF = min_ff === null || min_ff === undefined || min_ff <= -999999 ? -Infinity : min_ff;
+      const maxFF = max_ff === null || max_ff === undefined || max_ff >= 999999 ? Infinity : max_ff;
       const topN = top_n ?? 20;
       const minOI = min_open_interest ?? 200; // Default to 200 for high liquidity
 
