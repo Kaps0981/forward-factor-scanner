@@ -9,7 +9,9 @@ import {
   AlertTriangle, 
   X, 
   ChevronRight,
-  Info
+  Info,
+  Calendar,
+  Building
 } from "lucide-react";
 import {
   Tooltip,
@@ -103,7 +105,12 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
 
   const getIVRLabel = (ivr: number | undefined): string => {
     if (ivr === undefined || ivr === null) return '—';
-    return `${Math.round(ivr)}`;
+    return `${Math.round(ivr)}%`;
+  };
+
+  const getRiskRewardLabel = (riskReward: number | undefined): string => {
+    if (riskReward === undefined || riskReward === null) return '—';
+    return `${riskReward.toFixed(1)}:1`;
   };
 
   const toggleRowExpansion = (rowId: string) => {
@@ -187,6 +194,32 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   Forward Factor <SortIcon field="forward_factor" />
                 </TableHead>
                 <TableHead className="text-center font-semibold bg-background">Signal</TableHead>
+                <TableHead className="text-center font-semibold bg-background">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Events
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Financial Events</p>
+                        <p className="text-xs text-muted-foreground">Earnings announcements and Fed meetings</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="text-center font-semibold bg-background">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Risk/Reward
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Risk to Reward Ratio</p>
+                        <p className="text-xs text-muted-foreground">Potential profit vs loss ratio for ATM straddles</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead className="text-right font-semibold bg-background">Position Size</TableHead>
                 <TableHead className="font-semibold bg-background">Front Contract</TableHead>
                 <TableHead 
@@ -302,6 +335,92 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         >
                           {opp.signal}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`cell-events-${index}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {opp.earnings_date && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className={`h-4 w-4 ${
+                                      opp.event_warnings?.some(w => w.includes('EARNINGS') && w.includes('HIGH RISK'))
+                                        ? 'text-red-500'
+                                        : 'text-yellow-500'
+                                    }`} />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div>
+                                    <p className="font-semibold">Earnings Date</p>
+                                    <p className="text-sm">{new Date(opp.earnings_date).toLocaleDateString()}</p>
+                                    {opp.event_warnings?.filter(w => w.includes('Earnings')).map((warning, i) => (
+                                      <p key={i} className="text-xs text-muted-foreground mt-1">{warning}</p>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {opp.fed_events && opp.fed_events.length > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1">
+                                    <Building className={`h-4 w-4 ${
+                                      opp.event_warnings?.some(w => w.includes('Fed meeting') && w.includes('between'))
+                                        ? 'text-red-500'
+                                        : 'text-blue-500'
+                                    }`} />
+                                    {opp.fed_events.length > 1 && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {opp.fed_events.length}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div>
+                                    <p className="font-semibold">Fed Meetings</p>
+                                    {opp.fed_events.map((event, i) => (
+                                      <p key={i} className="text-sm mt-1">{event}</p>
+                                    ))}
+                                    {opp.event_warnings?.filter(w => w.includes('Fed')).map((warning, i) => (
+                                      <p key={i} className="text-xs text-muted-foreground mt-1">{warning}</p>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {!opp.earnings_date && (!opp.fed_events || opp.fed_events.length === 0) && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-risk-reward-${index}`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="font-mono font-semibold text-sm">
+                                {getRiskRewardLabel(opp.risk_reward)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <div>
+                                <p className="font-semibold">Risk/Reward Ratio</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Higher ratios indicate better potential return vs risk
+                                </p>
+                                {opp.risk_reward && (
+                                  <p className="text-xs font-mono mt-1">
+                                    For every $1 risked, potential reward is ${opp.risk_reward.toFixed(2)}
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums" data-testid={`text-position-size-${index}`}>
                         {opp.position_size_recommendation || '—'}
@@ -456,7 +575,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       >
                         <TableCell className="sticky left-0 z-[40] bg-muted/30 border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
                         <TableCell className="sticky left-8 z-[40] bg-muted/30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
-                        <TableCell colSpan={17} className="p-4">
+                        <TableCell colSpan={18} className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Info className="h-4 w-4 text-blue-500" />

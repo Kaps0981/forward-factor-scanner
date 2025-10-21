@@ -9,15 +9,21 @@ import { ScanProgress } from "@/components/ScanProgress";
 import { Header } from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Activity, Clock, FileText, Download } from "lucide-react";
+import { Activity, Clock, FileText, Download, Calendar, Building, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export default function Scanner() {
   const { toast } = useToast();
   const [scanResults, setScanResults] = useState<ScanResponse | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, ticker: "" });
+  const [eventsExpanded, setEventsExpanded] = useState(false);
   
   // Parse URL params for watchlist pre-fill
   const urlParams = new URLSearchParams(window.location.search);
@@ -145,14 +151,17 @@ export default function Scanner() {
       "ticker",
       "forward_factor",
       "signal",
+      "risk_reward",
       "position_size_recommendation",
       "front_date",
       "front_dte",
       "front_iv",
+      "front_ivr",
       "front_straddle_oi",
       "back_date",
       "back_dte",
       "back_iv",
+      "back_ivr",
       "back_straddle_oi",
       "min_liquidity",
       "forward_vol",
@@ -161,25 +170,33 @@ export default function Scanner() {
       "back_liquidity_score",
       "quality_score",
       "has_earnings_soon",
+      "earnings_date",
+      "fed_events",
+      "event_warnings",
       "execution_warnings",
     ];
 
     const rows = scanResults.opportunities.map((opp) => {
       const minLiquidity = Math.min(opp.straddle_oi || 0, opp.back_straddle_oi || 0);
       const executionWarnings = opp.execution_warnings ? opp.execution_warnings.join("; ") : "";
+      const fedEvents = opp.fed_events ? opp.fed_events.join("; ") : "";
+      const eventWarnings = opp.event_warnings ? opp.event_warnings.join("; ") : "";
       
       return [
         opp.ticker,
         opp.forward_factor,
         opp.signal,
+        opp.risk_reward || "",
         opp.position_size_recommendation || "",
         opp.front_date,
         opp.front_dte,
         opp.front_iv,
+        opp.front_ivr || "",
         opp.straddle_oi || "",
         opp.back_date,
         opp.back_dte,
         opp.back_iv,
+        opp.back_ivr || "",
         opp.back_straddle_oi || "",
         minLiquidity || "",
         opp.forward_vol,
@@ -188,6 +205,9 @@ export default function Scanner() {
         opp.back_liquidity_score || "",
         opp.quality_score || "",
         opp.has_earnings_soon || false,
+        opp.earnings_date || "",
+        `"${fedEvents}"`, // Quote since they may contain commas
+        `"${eventWarnings}"`, // Quote since they may contain commas
         `"${executionWarnings}"`, // Quote execution warnings since they may contain commas
       ];
     });
@@ -213,6 +233,135 @@ export default function Scanner() {
 
       <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="space-y-6">
+          {/* Upcoming Events Card */}
+          {scanResults && scanResults.opportunities.length > 0 && (
+            <Collapsible open={eventsExpanded} onOpenChange={setEventsExpanded}>
+              <Card className="border-border">
+                <CollapsibleTrigger className="w-full" data-testid="button-events-toggle">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-yellow-500" />
+                        <CardTitle className="text-base">Upcoming Financial Events</CardTitle>
+                      </div>
+                      {eventsExpanded ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <CardContent className="pt-0 space-y-4">
+                    {/* Fed Meetings Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4 text-blue-500" />
+                        <h4 className="text-sm font-medium">Federal Reserve Meetings</h4>
+                      </div>
+                      <div className="pl-6 space-y-1">
+                        {(() => {
+                          // Get all unique Fed events from scan results
+                          const allFedEvents = new Set<string>();
+                          scanResults.opportunities.forEach(opp => {
+                            if (opp.fed_events) {
+                              opp.fed_events.forEach(event => allFedEvents.add(event));
+                            }
+                          });
+                          const fedEventsList = Array.from(allFedEvents).sort();
+                          
+                          if (fedEventsList.length > 0) {
+                            return fedEventsList.slice(0, 3).map((event, idx) => (
+                              <p key={idx} className="text-sm text-muted-foreground">{event}</p>
+                            ));
+                          } else {
+                            return <p className="text-sm text-muted-foreground">No Fed meetings in scan period</p>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+                    
+                    {/* Earnings Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-yellow-500" />
+                        <h4 className="text-sm font-medium">Upcoming Earnings (Next 7 Days)</h4>
+                      </div>
+                      <div className="pl-6 space-y-1">
+                        {(() => {
+                          // Get all stocks with earnings dates
+                          const earningsStocks = scanResults.opportunities
+                            .filter(opp => opp.earnings_date)
+                            .map(opp => ({
+                              ticker: opp.ticker,
+                              date: opp.earnings_date!,
+                              isCritical: opp.event_warnings?.some(w => 
+                                w.includes('EARNINGS') && w.includes('HIGH RISK')
+                              ) || false
+                            }))
+                            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                            .slice(0, 5);
+                          
+                          if (earningsStocks.length > 0) {
+                            return earningsStocks.map((stock, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{stock.ticker}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {new Date(stock.date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })}
+                                </span>
+                                {stock.isCritical && (
+                                  <Badge variant="destructive" className="text-xs px-1 py-0">
+                                    Between Exp
+                                  </Badge>
+                                )}
+                              </div>
+                            ));
+                          } else {
+                            return <p className="text-sm text-muted-foreground">No earnings in next 7 days</p>;
+                          }
+                        })()}
+                      </div>
+                    </div>
+                    
+                    {/* Warning Summary */}
+                    {(() => {
+                      const criticalEvents = scanResults.opportunities.filter(opp => 
+                        opp.event_warnings && opp.event_warnings.some(w => 
+                          w.includes('HIGH RISK') || w.includes('between expirations')
+                        )
+                      );
+                      
+                      if (criticalEvents.length > 0) {
+                        return (
+                          <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-md">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                                  Event Risks Detected
+                                </p>
+                                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                                  {criticalEvents.length} position{criticalEvents.length !== 1 ? 's' : ''} have 
+                                  critical events between expirations. Review carefully before trading.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+
           {/* Market Status Card */}
           {marketStatus && (
             <Card className="p-3 md:p-4 border-border">

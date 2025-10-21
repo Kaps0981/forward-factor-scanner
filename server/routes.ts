@@ -9,6 +9,7 @@ import { analyzeOpportunityQuality, generateTradingThesis, calculatePositionSize
 import { generateHTMLReport, generateMarkdownReport } from "./reportGenerator";
 import { TradingCalendar } from "./tradingCalendar";
 import { MarketCapFilter } from "./marketCapFilter";
+import { FinancialEventsService } from "./financialEvents";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -225,8 +226,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate report
       const report = format === 'markdown'
-        ? generateMarkdownReport({ scan, opportunities, qualitySetups, rejectedSetups })
-        : generateHTMLReport({ scan, opportunities, qualitySetups, rejectedSetups });
+        ? generateMarkdownReport({ scan, opportunities: analyzedOpportunities, qualitySetups, rejectedSetups })
+        : generateHTMLReport({ scan, opportunities: analyzedOpportunities, qualitySetups, rejectedSetups });
       
       // Set appropriate content type
       const contentType = format === 'markdown' ? 'text/markdown' : 'text/html';
@@ -286,6 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const scanner = new ForwardFactorScanner(POLYGON_API_KEY);
       const polygonService = new PolygonService(POLYGON_API_KEY);
+      const eventsService = new FinancialEventsService(POLYGON_API_KEY);
       
       const opportunities = await scanner.scanMultiple(
         tickersToScan.slice(0, 30),
@@ -316,11 +318,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const earningsMap = new Map(earningsChecks.map(e => [e.ticker, e.hasEarnings]));
       
+      // Check for financial events for each opportunity
+      const opportunitiesWithEvents = await Promise.all(
+        filteredOpportunities.map(async (opp) => {
+          const events = await eventsService.checkFinancialEvents(
+            opp.ticker,
+            opp.front_date,
+            opp.back_date
+          );
+          return { ...opp, ...events };
+        })
+      );
+      
       // Add earnings flag, quality analysis, position sizing, and warnings to opportunities
-      const opportunitiesWithAnalysis = filteredOpportunities.map(opp => {
+      const opportunitiesWithAnalysis = opportunitiesWithEvents.map(opp => {
         const oppWithEarnings = {
           ...opp,
           has_earnings_soon: earningsMap.get(opp.ticker) || false,
+          // Convert null to undefined for earnings_date
+          earnings_date: opp.earnings_date === null ? undefined : opp.earnings_date,
         };
         
         // Run quality analysis
@@ -410,6 +426,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           front_ivr: opp.front_ivr,
           back_ivr: opp.back_ivr,
           ivr_context: opp.ivr_context,
+          // Financial events fields
+          earnings_date: opp.earnings_date || null,
+          fed_events: opp.fed_events || [],
+          event_warnings: opp.event_warnings || [],
         }));
         
         await storage.createOpportunities(opportunityRecords);

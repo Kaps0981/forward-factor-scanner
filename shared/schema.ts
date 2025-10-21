@@ -41,6 +41,10 @@ export const opportunitySchema = z.object({
   front_ivr: z.number().min(0).max(100).optional(),
   back_ivr: z.number().min(0).max(100).optional(),
   ivr_context: z.string().optional(),
+  // Financial events fields
+  earnings_date: z.string().optional(),
+  fed_events: z.array(z.string()).optional(),
+  event_warnings: z.array(z.string()).optional(),
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;
@@ -143,6 +147,10 @@ export const opportunities = pgTable("opportunities", {
   front_ivr: integer("front_ivr"),
   back_ivr: integer("back_ivr"),
   ivr_context: varchar("ivr_context", { length: 100 }),
+  // Financial events fields
+  earnings_date: varchar("earnings_date", { length: 20 }),
+  fed_events: jsonb("fed_events"), // Array of Fed event strings
+  event_warnings: jsonb("event_warnings"), // Array of warning strings
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });

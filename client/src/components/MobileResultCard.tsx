@@ -1,7 +1,7 @@
 import { type Opportunity } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronRight, AlertTriangle, Calendar, Building } from "lucide-react";
 import { 
   Collapsible, 
   CollapsibleContent, 
@@ -29,6 +29,23 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
     if (signal === 'BUY') return 'default';
     if (signal === 'SELL') return 'secondary';
     return 'outline';
+  };
+
+  const getIVRBadgeVariant = (ivr: number | undefined): string => {
+    if (ivr === undefined || ivr === null) return 'outline';
+    if (ivr > 70) return 'destructive'; // Red for high IVR
+    if (ivr >= 30) return 'secondary'; // Yellow/normal for normal IVR
+    return 'default'; // Green for low IVR
+  };
+
+  const getIVRLabel = (ivr: number | undefined): string => {
+    if (ivr === undefined || ivr === null) return '—';
+    return `${Math.round(ivr)}%`;
+  };
+
+  const getRiskRewardLabel = (riskReward: number | undefined): string => {
+    if (riskReward === undefined || riskReward === null) return '—';
+    return `${riskReward.toFixed(1)}:1`;
   };
 
   return (
@@ -59,9 +76,9 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Position: </span>
-                      <span className="font-mono">
-                        {opportunity.position_size_recommendation || '—'}
+                      <span className="text-muted-foreground">R/R: </span>
+                      <span className="font-mono font-semibold text-primary">
+                        {getRiskRewardLabel(opportunity.risk_reward)}
                       </span>
                     </div>
                     <div>
@@ -73,12 +90,62 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                       <span className="text-xs">{opportunity.back_dte}d</span>
                     </div>
                   </div>
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">IVR:</span>
+                      <Badge 
+                        variant={getIVRBadgeVariant(opportunity.front_ivr) as any}
+                        className="text-xs px-1 py-0"
+                      >
+                        F: {getIVRLabel(opportunity.front_ivr)}
+                      </Badge>
+                      <Badge 
+                        variant={getIVRBadgeVariant(opportunity.back_ivr) as any}
+                        className="text-xs px-1 py-0"
+                      >
+                        B: {getIVRLabel(opportunity.back_ivr)}
+                      </Badge>
+                    </div>
+                    <div className="text-xs">
+                      <span className="text-muted-foreground">Pos: </span>
+                      <span className="font-mono">
+                        {opportunity.position_size_recommendation || '—'}
+                      </span>
+                    </div>
+                  </div>
 
-                  {opportunity.execution_warnings && opportunity.execution_warnings.length > 0 && (
+                  {/* Financial Events */}
+                  {(opportunity.earnings_date || (opportunity.fed_events && opportunity.fed_events.length > 0)) && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {opportunity.earnings_date && (
+                        <div className="flex items-center gap-1">
+                          <Calendar className={`h-3 w-3 ${
+                            opportunity.event_warnings?.some(w => w.includes('EARNINGS') && w.includes('HIGH RISK'))
+                              ? 'text-red-500'
+                              : 'text-yellow-500'
+                          }`} />
+                          <span className="text-xs">Earnings</span>
+                        </div>
+                      )}
+                      {opportunity.fed_events && opportunity.fed_events.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Building className={`h-3 w-3 ${
+                            opportunity.event_warnings?.some(w => w.includes('Fed meeting') && w.includes('between'))
+                              ? 'text-red-500'
+                              : 'text-blue-500'
+                          }`} />
+                          <span className="text-xs">Fed Meeting</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {opportunity.event_warnings && opportunity.event_warnings.length > 0 && (
                     <div className="flex items-start gap-1 mt-2">
                       <AlertTriangle className="h-3 w-3 text-yellow-500 mt-0.5" />
                       <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                        {opportunity.execution_warnings[0]}
+                        {opportunity.event_warnings[0]}
                       </p>
                     </div>
                   )}
@@ -105,6 +172,15 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                     <span className="font-mono">{opportunity.front_iv.toFixed(1)}%</span>
                   </div>
                   <div>
+                    <span className="text-muted-foreground">IVR: </span>
+                    <Badge 
+                      variant={getIVRBadgeVariant(opportunity.front_ivr) as any}
+                      className="text-xs px-1 py-0"
+                    >
+                      {getIVRLabel(opportunity.front_ivr)}
+                    </Badge>
+                  </div>
+                  <div>
                     <span className="text-muted-foreground">OI: </span>
                     <span className={`font-mono ${getLiquidityColor(opportunity.straddle_oi)}`}>
                       {opportunity.straddle_oi || '—'}
@@ -125,6 +201,15 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                     <span className="font-mono">{opportunity.back_iv.toFixed(1)}%</span>
                   </div>
                   <div>
+                    <span className="text-muted-foreground">IVR: </span>
+                    <Badge 
+                      variant={getIVRBadgeVariant(opportunity.back_ivr) as any}
+                      className="text-xs px-1 py-0"
+                    >
+                      {getIVRLabel(opportunity.back_ivr)}
+                    </Badge>
+                  </div>
+                  <div>
                     <span className="text-muted-foreground">OI: </span>
                     <span className={`font-mono ${getLiquidityColor(opportunity.back_straddle_oi)}`}>
                       {opportunity.back_straddle_oi || '—'}
@@ -141,11 +226,44 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
               </div>
             )}
 
-            {opportunity.execution_warnings && opportunity.execution_warnings.length > 1 && (
+            {/* Detailed Financial Events */}
+            {(opportunity.earnings_date || (opportunity.fed_events && opportunity.fed_events.length > 0)) && (
+              <div className="mt-3 p-2 bg-muted/50 rounded-md">
+                <div className="text-xs text-muted-foreground mb-2">Financial Events</div>
+                {opportunity.earnings_date && (
+                  <div className="flex items-start gap-2 mb-2">
+                    <Calendar className="h-3 w-3 text-yellow-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium">Earnings Date</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(opportunity.earnings_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {opportunity.fed_events && opportunity.fed_events.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Building className="h-3 w-3 text-blue-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium">Fed Meetings</p>
+                      {opportunity.fed_events.map((event, idx) => (
+                        <p key={idx} className="text-xs text-muted-foreground">{event}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {opportunity.event_warnings && opportunity.event_warnings.length > 0 && (
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground mb-1">All Warnings:</p>
                 <ul className="list-disc list-inside">
-                  {opportunity.execution_warnings.map((warning, idx) => (
+                  {opportunity.execution_warnings && opportunity.execution_warnings.map((warning, idx) => (
                     <li key={idx} className="text-xs text-yellow-600 dark:text-yellow-400">{warning}</li>
                   ))}
                 </ul>
