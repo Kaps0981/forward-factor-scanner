@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "wouter";
 import { type Scan, type Opportunity } from "@shared/schema";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Header } from "@/components/Header";
 import { ResultsTable } from "@/components/ResultsTable";
-import { Activity, ArrowLeft, Calendar, TrendingUp } from "lucide-react";
+import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -67,43 +67,9 @@ export default function ScanDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link href="/" className="flex items-center gap-3 hover-elevate active-elevate-2 px-3 py-2 rounded-md">
-                <div className="p-2 rounded-md bg-primary/10">
-                  <Activity className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    Forward Factor Scanner
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    Options volatility mispricing detector
-                  </p>
-                </div>
-              </Link>
-              
-              <nav className="flex items-center gap-1">
-                <Link href="/">
-                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer">
-                    Scanner
-                  </Badge>
-                </Link>
-                <Link href="/history">
-                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer">
-                    History
-                  </Badge>
-                </Link>
-              </nav>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Header currentPage="history" />
 
-      <main className="container max-w-7xl mx-auto px-6 py-8">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="space-y-6">
           <Link href="/history">
             <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">

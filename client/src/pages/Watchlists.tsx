@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { type Watchlist } from "@shared/schema";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, Trash2, Play, ListPlus, History, ScanSearch } from "lucide-react";
+import { Plus, Trash2, Play, ListPlus } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function Watchlists() {
@@ -109,32 +109,18 @@ export default function Watchlists() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <ListPlus className="w-8 h-8 text-primary" />
+      <Header currentPage="watchlists" />
+      
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+        <div className="space-y-4 md:space-y-6">
+          {/* Page Title */}
+          <div className="flex items-center gap-2 md:gap-3">
+            <ListPlus className="h-5 w-5 md:h-6 md:w-6 text-primary" />
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Watchlists</h1>
-              <p className="text-sm text-muted-foreground">Manage your saved ticker lists for quick scanning</p>
+              <h1 className="text-xl md:text-2xl font-semibold">Watchlists</h1>
+              <p className="text-xs md:text-sm text-muted-foreground">Manage your saved ticker lists for quick scanning</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href="/" asChild>
-              <Button variant="ghost" size="sm" data-testid="link-scanner">
-                <ScanSearch className="w-4 h-4 mr-2" />
-                Scanner
-              </Button>
-            </Link>
-            <Link href="/history" asChild>
-              <Button variant="ghost" size="sm" data-testid="link-history">
-                <History className="w-4 h-4 mr-2" />
-                History
-              </Button>
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
 
         {/* Create Watchlist Button */}
         <div className="mb-6">
@@ -273,27 +259,28 @@ export default function Watchlists() {
           </div>
         )}
 
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Watchlist?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete this watchlist. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
-                data-testid="button-confirm-delete"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+          {/* Delete Confirmation Dialog */}
+          <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Watchlist?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this watchlist. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteConfirmId && deleteMutation.mutate(deleteConfirmId)}
+                  data-testid="button-confirm-delete"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </main>
     </div>
   );
 }

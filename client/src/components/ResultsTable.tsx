@@ -34,6 +34,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileResultCard } from "@/components/MobileResultCard";
 
 interface ResultsTableProps {
   opportunities: Opportunity[];
@@ -48,6 +50,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showWarning, setShowWarning] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const isMobile = useIsMobile();
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -136,7 +139,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Scan Results</h2>
+        <h2 className="text-base sm:text-lg font-semibold">Scan Results</h2>
         <Button
           variant="outline"
           size="sm"
@@ -144,16 +147,25 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
           disabled={opportunities.length === 0}
           data-testid="button-export-csv"
         >
-          <Download className="mr-2 h-4 w-4" />
-          Export CSV
+          <Download className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">Export CSV</span>
+          <span className="sm:hidden">Export</span>
         </Button>
       </div>
 
       {opportunities.length === 0 ? (
-        <div className="border border-card-border rounded-lg p-12 text-center">
-          <p className="text-muted-foreground">No opportunities found. Run a scan to get started.</p>
+        <div className="border border-card-border rounded-lg p-8 sm:p-12 text-center">
+          <p className="text-sm sm:text-base text-muted-foreground">No opportunities found. Run a scan to get started.</p>
+        </div>
+      ) : isMobile ? (
+        // Mobile Card View
+        <div className="space-y-3">
+          {sortedOpportunities.map((opp) => (
+            <MobileResultCard key={opp.ticker} opportunity={opp} />
+          ))}
         </div>
       ) : (
+        // Desktop Table View
         <div className="border border-card-border rounded-lg overflow-hidden">
         <div className="relative max-h-[600px] overflow-auto">
           <Table className="relative">

@@ -56,21 +56,24 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
 
   return (
     <Card className="border-card-border">
-      <CardContent className="p-6">
-        <div className="space-y-6">
+      <CardContent className="p-4 md:p-6">
+        <div className="space-y-4 md:space-y-6">
           <div>
-            <h2 className="text-lg font-semibold mb-4">Scan Configuration</h2>
+            <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Scan Configuration</h2>
             
             <Tabs value={scanType} onValueChange={(v) => setScanType(v as "default" | "custom" | "marketcap")}>
-              <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="default" data-testid="tab-default-stocks">
-                  Default Stocks
+              <TabsList className="grid w-full grid-cols-3 mb-3 md:mb-4 h-auto">
+                <TabsTrigger value="default" data-testid="tab-default-stocks" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-1.5">
+                  <span className="hidden sm:inline">Default Stocks</span>
+                  <span className="sm:hidden">Default</span>
                 </TabsTrigger>
-                <TabsTrigger value="custom" data-testid="tab-custom-tickers">
-                  Custom Tickers
+                <TabsTrigger value="custom" data-testid="tab-custom-tickers" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-1.5">
+                  <span className="hidden sm:inline">Custom Tickers</span>
+                  <span className="sm:hidden">Custom</span>
                 </TabsTrigger>
-                <TabsTrigger value="marketcap" data-testid="tab-market-cap">
-                  By Market Cap
+                <TabsTrigger value="marketcap" data-testid="tab-market-cap" className="text-xs sm:text-sm px-1 sm:px-3 py-2 sm:py-1.5">
+                  <span className="hidden sm:inline">By Market Cap</span>
+                  <span className="sm:hidden">Market Cap</span>
                 </TabsTrigger>
               </TabsList>
               
@@ -142,15 +145,15 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
             </Tabs>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:gap-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Forward Factor Range</Label>
-                <span className="text-sm font-mono text-muted-foreground">
+                <Label className="text-xs sm:text-sm font-medium">Forward Factor Range</Label>
+                <span className="text-xs sm:text-sm font-mono text-muted-foreground">
                   No Limits Applied
                 </span>
               </div>
-              <div className="bg-muted/50 rounded-md p-3">
+              <div className="bg-muted/50 rounded-md p-2 sm:p-3">
                 <p className="text-xs text-muted-foreground">
                   ℹ️ FF percentage filtering has been removed. The scanner will find all opportunities regardless of FF magnitude.
                 </p>
@@ -160,55 +163,57 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="top-n" className="text-sm font-medium">
-                  Top Results
-                </Label>
-                <span className="text-sm font-mono text-muted-foreground">
-                  {topN}
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="top-n" className="text-xs sm:text-sm font-medium">
+                    Top Results
+                  </Label>
+                  <span className="text-xs sm:text-sm font-mono text-muted-foreground">
+                    {topN}
+                  </span>
+                </div>
+                <Slider
+                  id="top-n"
+                  min={5}
+                  max={50}
+                  step={5}
+                  value={[topN]}
+                  onValueChange={([v]) => setTopN(v)}
+                  className="mt-2 touch-none"
+                  data-testid="slider-top-n"
+                />
               </div>
-              <Slider
-                id="top-n"
-                min={5}
-                max={50}
-                step={5}
-                value={[topN]}
-                onValueChange={([v]) => setTopN(v)}
-                className="mt-2"
-                data-testid="slider-top-n"
-              />
-            </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="min-oi" className="text-sm font-medium">
-                  Min Open Interest
-                </Label>
-                <span className="text-sm font-mono text-muted-foreground">
-                  {minOpenInterest === 0 ? 'None' : minOpenInterest}
-                </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="min-oi" className="text-xs sm:text-sm font-medium">
+                    Min Open Interest
+                  </Label>
+                  <span className="text-xs sm:text-sm font-mono text-muted-foreground">
+                    {minOpenInterest === 0 ? 'None' : minOpenInterest}
+                  </span>
+                </div>
+                <Slider
+                  id="min-oi"
+                  min={0}
+                  max={500}
+                  step={50}
+                  value={[minOpenInterest]}
+                  onValueChange={([v]) => setMinOpenInterest(v)}
+                  className="mt-2 touch-none"
+                  data-testid="slider-min-oi"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Filter by ATM option liquidity
+                </p>
               </div>
-              <Slider
-                id="min-oi"
-                min={0}
-                max={500}
-                step={50}
-                value={[minOpenInterest]}
-                onValueChange={([v]) => setMinOpenInterest(v)}
-                className="mt-2"
-                data-testid="slider-min-oi"
-              />
-              <p className="text-xs text-muted-foreground">
-                Filter by ATM option liquidity
-              </p>
             </div>
           </div>
 
-          <div className="flex items-center justify-between p-4 border border-card-border rounded-lg">
+          <div className="flex items-center justify-between p-3 sm:p-4 border border-card-border rounded-lg">
             <div className="space-y-1">
-              <Label htmlFor="email-alerts" className="text-sm font-medium">
+              <Label htmlFor="email-alerts" className="text-xs sm:text-sm font-medium">
                 Email Notifications
               </Label>
               <p className="text-xs text-muted-foreground">
@@ -220,6 +225,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               checked={enableEmailAlerts}
               onCheckedChange={setEnableEmailAlerts}
               data-testid="switch-email-alerts"
+              className="touch-none"
             />
           </div>
 

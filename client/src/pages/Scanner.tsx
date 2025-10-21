@@ -6,7 +6,7 @@ import { ScanControls } from "@/components/ScanControls";
 import { SummaryCards } from "@/components/SummaryCards";
 import { ResultsTable } from "@/components/ResultsTable";
 import { ScanProgress } from "@/components/ScanProgress";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { Header } from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { Activity, Clock, FileText, Download } from "lucide-react";
@@ -209,64 +209,27 @@ export default function Scanner() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-md bg-primary/10">
-                  <Activity className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    Forward Factor Scanner
-                  </h1>
-                  <p className="text-sm text-muted-foreground">
-                    Options volatility mispricing detector
-                  </p>
-                </div>
-              </div>
-              
-              <nav className="flex items-center gap-1">
-                <Badge variant="default" className="cursor-pointer" data-testid="link-scanner">
-                  Scanner
-                </Badge>
-                <Link href="/watchlists">
-                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer" data-testid="link-watchlists">
-                    Watchlists
-                  </Badge>
-                </Link>
-                <Link href="/history">
-                  <Badge variant="outline" className="hover-elevate active-elevate-2 cursor-pointer" data-testid="link-history">
-                    History
-                  </Badge>
-                </Link>
-              </nav>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Header currentPage="scanner" />
 
-      <main className="container max-w-7xl mx-auto px-6 py-8">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
         <div className="space-y-6">
           {/* Market Status Card */}
           {marketStatus && (
-            <Card className="p-4 border-border">
-              <div className="flex items-center justify-between">
+            <Card className="p-3 md:p-4 border-border">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
+                  <Clock className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                   <div>
-                    <p className="text-lg font-medium">{marketStatus.message}</p>
+                    <p className="text-base md:text-lg font-medium">{marketStatus.message}</p>
                     {!marketStatus.isOpen && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-xs md:text-sm text-muted-foreground">
                         Next trading day: {new Date(marketStatus.nextTradingDay).toLocaleDateString()}
                       </p>
                     )}
                   </div>
                 </div>
                 {scanResults?.scan_id && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-8 md:ml-0">
                     <Button
                       size="sm"
                       variant="outline"
@@ -274,9 +237,11 @@ export default function Scanner() {
                         window.open(`/api/scans/${scanResults.scan_id}/report?format=markdown`, '_blank');
                       }}
                       data-testid="button-download-markdown"
+                      className="flex-1 md:flex-none"
                     >
                       <FileText className="h-4 w-4 mr-2" />
-                      Markdown Report
+                      <span className="hidden sm:inline">Markdown</span>
+                      <span className="sm:hidden">MD</span>
                     </Button>
                     <Button
                       size="sm"
@@ -285,9 +250,10 @@ export default function Scanner() {
                         window.open(`/api/scans/${scanResults.scan_id}/report?format=html`, '_blank');
                       }}
                       data-testid="button-download-html"
+                      className="flex-1 md:flex-none"
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      HTML Report
+                      HTML
                     </Button>
                   </div>
                 )}
@@ -331,9 +297,9 @@ export default function Scanner() {
         </div>
       </main>
 
-      <footer className="border-t border-border mt-12 py-6">
-        <div className="container max-w-7xl mx-auto px-6">
-          <p className="text-center text-sm text-muted-foreground">
+      <footer className="border-t border-border mt-8 md:mt-12 py-4 md:py-6">
+        <div className="container max-w-7xl mx-auto px-4 md:px-6">
+          <p className="text-center text-xs md:text-sm text-muted-foreground">
             Educational tool only. Not financial advice. Always verify signals before trading.
           </p>
         </div>
