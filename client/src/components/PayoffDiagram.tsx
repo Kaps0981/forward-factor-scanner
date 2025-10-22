@@ -190,7 +190,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
             <div className="flex items-center justify-between">
               <div>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                  {opportunity.ticker} Straddle Payoff Analysis
+                  {opportunity.ticker} Calendar Spread Payoff Analysis
                   <Badge variant={opportunity.signal === 'BUY' ? 'default' : 'secondary'}>
                     {opportunity.signal}
                   </Badge>
@@ -210,7 +210,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
               <CardHeader className="pb-2 pt-4 px-4">
                 <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                   <DollarSign className="h-3 w-3" />
-                  PREMIUM PAID
+                  NET DEBIT PAID
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4">
@@ -410,22 +410,24 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-3 w-3 mt-0.5 text-yellow-500" />
                   <span>
-                    This straddle strategy profits from large moves in either direction. 
-                    The position needs the stock to move beyond the breakeven points to be profitable.
+                    This calendar spread profits from the stock staying near the strike price. 
+                    Maximum profit occurs at front expiration when the stock is at the strike. 
+                    Assignment risk exists if front month expires in-the-money.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <TrendingUp className="h-3 w-3 mt-0.5 text-green-500" />
                   <span>
                     With a Forward Factor of {formatPercent(payoffData.forwardFactor)}, 
-                    the implied volatility differential suggests {opportunity.signal === 'BUY' ? 'buying' : 'selling'} pressure.
+                    we're {opportunity.signal === 'SELL' ? 'selling the expensive front month and buying the cheaper back month' : 'capitalizing on volatility term structure'}.
+                    Max profit: {typeof payoffData.metrics.maxProfit === 'string' ? `$${payoffData.metrics.maxProfit}` : formatCurrency(Number(payoffData.metrics.maxProfit))}.
                   </span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Clock className="h-3 w-3 mt-0.5 text-blue-500" />
                   <span>
-                    Theta decay accelerates as expiration approaches. Consider closing the position 
-                    when you've captured 25-50% of maximum profit.
+                    Time decay works in our favor as the front month decays faster than the back month. 
+                    Monitor closely as front expiration approaches - consider rolling or closing before assignment risk.
                   </span>
                 </div>
               </div>

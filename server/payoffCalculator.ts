@@ -281,6 +281,26 @@ export class PayoffCalculator {
     // Net debit for calendar spread (pay more for back month)
     const netDebit = backPricing.straddlePrice - frontPricing.straddlePrice;
     
+    // Calculate max profit at front expiration when stock is at strike
+    // At front expiration, front straddle expires worthless and we still own back month straddle
+    const daysRemainingInBack = opportunity.back_dte - opportunity.front_dte;
+    const backValueAtFrontExp = BlackScholesModel.calculate({
+      stockPrice: strikePrice,
+      strikePrice,
+      timeToExpiration: daysRemainingInBack / 365,
+      volatility: backIV,
+      riskFreeRate: this.riskFreeRate,
+      dividendYield: 0
+    });
+    
+    const maxProfitValue = backValueAtFrontExp.straddlePrice - Math.abs(netDebit);
+    
+    // For calendar spreads, breakevens are more complex and depend on back month value
+    // Approximate breakevens based on typical calendar spread characteristics
+    const profitRange = backValueAtFrontExp.straddlePrice * 0.15; // Typical profit zone is about 15% of strike
+    const upperBreakeven = strikePrice * (1 + profitRange / strikePrice);
+    const lowerBreakeven = strikePrice * (1 - profitRange / strikePrice);
+    
     // For calendar spreads, we focus on the front month expiration
     // The P&L profile changes significantly after front expiration
     const curves = this.generateCalendarCurves(
@@ -307,10 +327,10 @@ export class PayoffCalculator {
       curves,
       metrics: {
         premium: Math.abs(netDebit),
-        upperBreakeven: strikePrice + Math.abs(netDebit),
-        lowerBreakeven: strikePrice - Math.abs(netDebit),
+        upperBreakeven,
+        lowerBreakeven,
         maxLoss: Math.abs(netDebit),
-        maxProfit: "Limited",
+        maxProfit: maxProfitValue.toFixed(2),
         profitProbability,
         currentDelta: backPricing.straddleDelta - frontPricing.straddleDelta,
         currentTheta: frontPricing.straddleTheta - backPricing.straddleTheta, // Positive theta

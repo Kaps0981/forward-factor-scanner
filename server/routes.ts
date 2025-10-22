@@ -186,7 +186,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const calculator = new PayoffCalculator();
-      const payoffAnalysis = calculator.calculatePayoffAnalysis(opportunity, currentStockPrice);
+      // Use calendar spread calculation for Forward Factor trades
+      // The Forward Factor strategy is a calendar spread (sell front, buy back)
+      const payoffAnalysis = calculator.calculateCalendarSpreadPayoff(opportunity, currentStockPrice);
       
       res.json(payoffAnalysis);
     } catch (error) {
