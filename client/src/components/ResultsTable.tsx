@@ -209,25 +209,25 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         <div className="border border-card-border rounded-lg overflow-hidden">
         <div className="relative max-h-[600px] overflow-auto">
           <Table className="relative">
-            <TableHeader className="sticky top-0 z-50">
-              <TableRow className="hover:bg-transparent bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <TableHead className="w-8 sticky left-0 z-[60] bg-background border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableHead>
+            <TableHeader className="sticky top-0 z-20">
+              <TableRow className="bg-card border-b border-card-border shadow-sm">
+                <TableHead className="w-8 sticky left-0 z-30 bg-card border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableHead>
                 <TableHead 
-                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-[60] bg-background shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
+                  className="cursor-pointer hover-elevate font-semibold sticky left-8 z-30 bg-card shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"
                   onClick={() => handleSort('ticker')}
                   data-testid="header-ticker"
                 >
                   Ticker <SortIcon field="ticker" />
                 </TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('forward_factor')}
                   data-testid="header-forward-factor"
                 >
                   Forward Factor <SortIcon field="forward_factor" />
                 </TableHead>
-                <TableHead className="text-center font-semibold bg-background">Signal</TableHead>
-                <TableHead className="text-center font-semibold bg-background">
+                <TableHead className="text-center font-semibold bg-card">Signal</TableHead>
+                <TableHead className="text-center font-semibold bg-card">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -240,7 +240,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-center font-semibold bg-background">
+                <TableHead className="text-center font-semibold bg-card">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -253,17 +253,17 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Position Size</TableHead>
-                <TableHead className="font-semibold bg-background">Front Contract</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Position Size</TableHead>
+                <TableHead className="font-semibold bg-card">Front Contract</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('front_dte')}
                   data-testid="header-front-dte"
                 >
                   Front DTE <SortIcon field="front_dte" />
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Front IV</TableHead>
-                <TableHead className="text-center font-semibold bg-background">
+                <TableHead className="text-right font-semibold bg-card">Front IV</TableHead>
+                <TableHead className="text-center font-semibold bg-card">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -276,17 +276,17 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Front OI</TableHead>
-                <TableHead className="font-semibold bg-background">Back Contract</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Front OI</TableHead>
+                <TableHead className="font-semibold bg-card">Back Contract</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('back_dte')}
                   data-testid="header-back-dte"
                 >
                   Back DTE <SortIcon field="back_dte" />
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Back IV</TableHead>
-                <TableHead className="text-center font-semibold bg-background">
+                <TableHead className="text-right font-semibold bg-card">Back IV</TableHead>
+                <TableHead className="text-center font-semibold bg-card">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
@@ -299,17 +299,17 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                     </Tooltip>
                   </TooltipProvider>
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Back Month OI</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Back Month OI</TableHead>
                 <TableHead 
-                  className="text-right cursor-pointer hover-elevate font-semibold bg-background"
+                  className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('min_liquidity')}
                   data-testid="header-min-liquidity"
                 >
                   Min Liquidity <SortIcon field="min_liquidity" />
                 </TableHead>
-                <TableHead className="text-right font-semibold bg-background">Forward Vol</TableHead>
-                <TableHead className="text-center font-semibold bg-background">Alerts</TableHead>
-                <TableHead className="text-center font-semibold bg-background">Actions</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Forward Vol</TableHead>
+                <TableHead className="text-center font-semibold bg-card">Alerts</TableHead>
+                <TableHead className="text-center font-semibold bg-card">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
