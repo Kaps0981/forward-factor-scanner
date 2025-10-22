@@ -279,12 +279,21 @@ export class PayoffCalculator {
       dividendYield: 0
     });
 
-    // Net debit calculation depends on signal type
-    // BUY signal (negative FF): Buy front, sell back -> net debit = front - back
-    // SELL signal (positive FF): Sell front, buy back -> net debit = back - front
-    const netDebit = opportunity.signal === 'BUY' 
-      ? frontPricing.straddlePrice - backPricing.straddlePrice  // We pay for front, receive for back
-      : backPricing.straddlePrice - frontPricing.straddlePrice; // We receive for front, pay for back
+    // Net debit/credit calculation depends on signal type
+    // BUY signal (negative FF): Buy front, sell back -> net cost = front - back (usually negative = we receive)
+    // SELL signal (positive FF): Sell front, buy back -> net cost = back - front (usually positive = we pay)
+    // Note: We always use absolute value for netDebit in P&L calculations
+    const frontCost = frontPricing.straddlePrice;
+    const backCost = backPricing.straddlePrice;
+    
+    // Calculate raw net cost (positive = we pay, negative = we receive)
+    const rawNetCost = opportunity.signal === 'BUY' 
+      ? frontCost - backCost  // Buy front, sell back
+      : backCost - frontCost; // Sell front, buy back
+    
+    // For P&L calculations, we use the absolute value
+    const netDebit = Math.abs(rawNetCost);
+    const isNetCredit = rawNetCost < 0;
     
     console.log("=== Calendar Spread Calculation Debug ===");
     console.log("Signal Type:", opportunity.signal);
@@ -292,9 +301,9 @@ export class PayoffCalculator {
     console.log("Strike Price:", strikePrice);
     console.log("Front IV:", opportunity.front_iv, "Back IV:", opportunity.back_iv);
     console.log("Front DTE:", opportunity.front_dte, "Back DTE:", opportunity.back_dte);
-    console.log("Front Straddle Price:", frontPricing.straddlePrice.toFixed(2));
-    console.log("Back Straddle Price:", backPricing.straddlePrice.toFixed(2));
-    console.log("Net Debit:", netDebit.toFixed(2));
+    console.log("Front Straddle Price:", frontCost.toFixed(2));
+    console.log("Back Straddle Price:", backCost.toFixed(2));
+    console.log(`Net ${isNetCredit ? 'Credit' : 'Debit'}: ${netDebit.toFixed(2)}`);
     console.log("Strategy:", opportunity.signal === 'BUY' ? 'REVERSE CALENDAR (Buy front, Sell back)' : 'CALENDAR (Sell front, Buy back)');
     
     // Calculate max profit at front expiration
@@ -337,7 +346,7 @@ export class PayoffCalculator {
       backIV,
       opportunity.front_dte,
       opportunity.back_dte,
-      netDebit,
+      rawNetCost,  // Pass the raw cost (can be negative for credit)
       opportunity.signal
     );
 
@@ -401,7 +410,7 @@ export class PayoffCalculator {
     backIV: number,
     frontDTE: number,
     backDTE: number,
-    netDebit: number,
+    rawNetCost: number,  // Positive = we pay (debit), Negative = we receive (credit)
     signal: 'BUY' | 'SELL'
   ): PayoffCurve[] {
     const curves: PayoffCurve[] = [];
@@ -459,12 +468,25 @@ export class PayoffCalculator {
           backValue = backPricing.straddlePrice;
         }
 
-        // Calculate P&L based on signal type
-        // BUY signal: We own front, short back -> P&L = frontValue - backValue - netDebit
-        // SELL signal: We're short front, own back -> P&L = backValue - frontValue - netDebit
-        const pnl = signal === 'BUY' 
-          ? frontValue - backValue - netDebit  // Reverse calendar (long front, short back)
-          : backValue - frontValue - netDebit; // Regular calendar (short front, long back)
+        // Calculate P&L based on signal type and initial cost/credit
+        // rawNetCost: Positive = we paid (debit), Negative = we received (credit)
+        
+        let pnl: number;
+        if (signal === 'BUY') {
+          // Reverse calendar: long front, short back
+          // Position value at any time = frontValue - backValue
+          // P&L = Position value - initial cost (or + initial credit if negative)
+          const positionValue = frontValue - backValue;
+          pnl = positionValue - rawNetCost;
+          // If rawNetCost is negative (credit), subtracting it adds to profit
+          // If rawNetCost is positive (debit), subtracting it reduces profit
+        } else {
+          // Regular calendar: short front, long back  
+          // Position value = backValue - frontValue
+          // P&L = Position value - initial cost
+          const positionValue = backValue - frontValue;
+          pnl = positionValue - rawNetCost;
+        }
         const percentMove = ((stockPrice - currentStockPrice) / currentStockPrice) * 100;
 
         dataPoints.push({
