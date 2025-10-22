@@ -12,7 +12,8 @@ import {
   Info,
   Calendar,
   Building,
-  LineChart
+  LineChart,
+  DollarSign
 } from "lucide-react";
 import {
   Tooltip,
@@ -155,6 +156,38 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
       setPayoffDialogOpen(false);
     } finally {
       setLoadingPayoff(false);
+    }
+  };
+
+  const handlePaperTrade = async (opportunity: Opportunity) => {
+    try {
+      // Create paper trade with default 1 contract
+      await apiRequest('/api/paper-trades', 'POST', {
+        ticker: opportunity.ticker,
+        signal: opportunity.signal,
+        quantity: 1,
+        entry_price: opportunity.forward_factor < 0 ? 1.50 : 2.00, // Estimated premium
+        stock_entry_price: 100, // Default stock price
+        front_expiry: opportunity.front_date,
+        back_expiry: opportunity.back_date,
+        front_entry_iv: opportunity.front_iv,
+        back_entry_iv: opportunity.back_iv,
+        forward_factor: opportunity.forward_factor
+      });
+      
+      toast({
+        title: "Paper Trade Created",
+        description: `Successfully created paper trade for ${opportunity.ticker}`,
+      });
+      
+      // Navigate to paper trading page
+      window.location.href = '/paper-trading';
+    } catch (error) {
+      toast({
+        title: "Failed to create paper trade",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -602,16 +635,27 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewPayoff(opp)}
-                          disabled={loadingPayoff}
-                          data-testid={`button-view-payoff-${index}`}
-                        >
-                          <LineChart className="h-4 w-4 mr-1" />
-                          Payoff
-                        </Button>
+                        <div className="flex gap-1 justify-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewPayoff(opp)}
+                            disabled={loadingPayoff}
+                            data-testid={`button-view-payoff-${index}`}
+                          >
+                            <LineChart className="h-4 w-4 mr-1" />
+                            Payoff
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePaperTrade(opp)}
+                            data-testid={`button-paper-trade-${index}`}
+                          >
+                            <DollarSign className="h-4 w-4 mr-1" />
+                            Trade
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                     {hasWarnings && isExpanded && (
