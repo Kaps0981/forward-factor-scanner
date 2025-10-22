@@ -184,3 +184,107 @@ export const insertWatchlistSchema = createInsertSchema(watchlists)
 
 export type InsertWatchlist = z.infer<typeof insertWatchlistSchema>;
 export type Watchlist = typeof watchlists.$inferSelect;
+
+// Paper Trades table - stores simulated trades
+export const paperTrades = pgTable("paper_trades", {
+  id: serial("id").primaryKey(),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  signal: varchar("signal", { length: 4 }).notNull(), // 'BUY' or 'SELL'
+  entry_date: timestamp("entry_date").defaultNow().notNull(),
+  exit_date: timestamp("exit_date"),
+  status: varchar("status", { length: 20 }).notNull().default('OPEN'), // OPEN, CLOSED, STOPPED
+  
+  // Position details
+  quantity: integer("quantity").notNull(),
+  front_strike: doublePrecision("front_strike").notNull(),
+  back_strike: doublePrecision("back_strike").notNull(),
+  front_expiry: varchar("front_expiry", { length: 20 }).notNull(),
+  back_expiry: varchar("back_expiry", { length: 20 }).notNull(),
+  
+  // Entry prices
+  entry_price: doublePrecision("entry_price").notNull(),
+  front_entry_iv: doublePrecision("front_entry_iv").notNull(),
+  back_entry_iv: doublePrecision("back_entry_iv").notNull(),
+  stock_entry_price: doublePrecision("stock_entry_price").notNull(),
+  
+  // Current prices (updated regularly)
+  current_price: doublePrecision("current_price"),
+  current_pnl: doublePrecision("current_pnl"),
+  current_pnl_percent: doublePrecision("current_pnl_percent"),
+  stock_current_price: doublePrecision("stock_current_price"),
+  front_current_iv: doublePrecision("front_current_iv"),
+  back_current_iv: doublePrecision("back_current_iv"),
+  
+  // Exit details
+  exit_price: doublePrecision("exit_price"),
+  realized_pnl: doublePrecision("realized_pnl"),
+  realized_pnl_percent: doublePrecision("realized_pnl_percent"),
+  exit_reason: varchar("exit_reason", { length: 100 }),
+  
+  // Exit timing signals
+  exit_signal: varchar("exit_signal", { length: 20 }), // GREEN, AMBER, RED, TAKE_PROFIT, STOP_LOSS
+  exit_signal_reason: text("exit_signal_reason"),
+  days_to_front_expiry: integer("days_to_front_expiry"),
+  theta_decay: doublePrecision("theta_decay"),
+  
+  // Risk management
+  stop_loss_price: doublePrecision("stop_loss_price"),
+  take_profit_price: doublePrecision("take_profit_price"),
+  max_risk: doublePrecision("max_risk"),
+  
+  // News and events
+  news_alerts: jsonb("news_alerts"), // Array of news events
+  has_earnings_alert: boolean("has_earnings_alert").default(false),
+  
+  // Original opportunity data
+  forward_factor: doublePrecision("forward_factor").notNull(),
+  original_scan_id: integer("original_scan_id"),
+});
+
+export const insertPaperTradeSchema = createInsertSchema(paperTrades)
+  .omit({ id: true, entry_date: true });
+export type InsertPaperTrade = z.infer<typeof insertPaperTradeSchema>;
+export type PaperTrade = typeof paperTrades.$inferSelect;
+
+// Trade News Events table - stores news that affects trades
+export const tradeNewsEvents = pgTable("trade_news_events", {
+  id: serial("id").primaryKey(),
+  trade_id: integer("trade_id").notNull(),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  event_date: timestamp("event_date").defaultNow().notNull(),
+  event_type: varchar("event_type", { length: 50 }).notNull(), // EARNINGS, NEWS, UPGRADE, DOWNGRADE, etc
+  headline: text("headline").notNull(),
+  impact_score: integer("impact_score"), // 1-10 severity
+  source: varchar("source", { length: 100 }),
+  url: text("url"),
+  recommended_action: varchar("recommended_action", { length: 50 }), // HOLD, CONSIDER_EXIT, EXIT_NOW
+});
+
+export const insertTradeNewsEventSchema = createInsertSchema(tradeNewsEvents)
+  .omit({ id: true, event_date: true });
+export type InsertTradeNewsEvent = z.infer<typeof insertTradeNewsEventSchema>;
+export type TradeNewsEvent = typeof tradeNewsEvents.$inferSelect;
+
+// Portfolio Summary table - tracks overall performance
+export const portfolioSummary = pgTable("portfolio_summary", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").defaultNow().notNull(),
+  total_capital: doublePrecision("total_capital").notNull().default(100000), // Starting capital
+  cash_balance: doublePrecision("cash_balance").notNull(),
+  positions_value: doublePrecision("positions_value").notNull(),
+  total_value: doublePrecision("total_value").notNull(),
+  total_pnl: doublePrecision("total_pnl").notNull(),
+  total_pnl_percent: doublePrecision("total_pnl_percent").notNull(),
+  open_trades: integer("open_trades").notNull(),
+  closed_trades: integer("closed_trades").notNull(),
+  win_rate: doublePrecision("win_rate"),
+  avg_win: doublePrecision("avg_win"),
+  avg_loss: doublePrecision("avg_loss"),
+  sharpe_ratio: doublePrecision("sharpe_ratio"),
+  max_drawdown: doublePrecision("max_drawdown"),
+});
+
+export const insertPortfolioSummarySchema = createInsertSchema(portfolioSummary)
+  .omit({ id: true, date: true });
+export type InsertPortfolioSummary = z.infer<typeof insertPortfolioSummarySchema>;
+export type PortfolioSummary = typeof portfolioSummary.$inferSelect;
