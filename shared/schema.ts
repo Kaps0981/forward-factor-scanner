@@ -296,6 +296,10 @@ export const createPaperTradeSchema = z.object({
   stop_loss_percent: z.number().min(0).max(100).default(30), // Default 30% stop loss
   take_profit_percent: z.number().min(0).max(500).default(50), // Default 50% take profit
   use_actual_prices: z.boolean().default(false), // Whether to use real current prices
+  actual_entry_price: z.number().optional(), // User's actual net debit/credit
+  actual_stock_price: z.number().optional(), // User's actual stock price at entry
+  actual_front_strike: z.number().optional(), // User's actual front strike
+  actual_back_strike: z.number().optional(), // User's actual back strike
 });
 
 export type CreatePaperTradeRequest = z.infer<typeof createPaperTradeSchema>;

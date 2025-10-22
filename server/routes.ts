@@ -348,13 +348,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { opportunity, quantity, stop_loss_percent, take_profit_percent, use_actual_prices } = validationResult.data;
+      const { 
+        opportunity, 
+        quantity, 
+        stop_loss_percent, 
+        take_profit_percent, 
+        use_actual_prices,
+        actual_entry_price,
+        actual_stock_price,
+        actual_front_strike,
+        actual_back_strike
+      } = validationResult.data;
       
-      // Calculate entry prices (simplified - would use actual pricing model)
-      const entryPrice = 1.5; // Simplified - would calculate from front/back IV spread
-      const stockPrice = 100; // Would fetch actual stock price
-      const frontStrike = stockPrice; // ATM for simplicity
-      const backStrike = stockPrice;
+      // Use actual prices if provided, otherwise calculate estimates
+      const entryPrice = actual_entry_price || 1.5; // Use actual or estimate
+      const stockPrice = actual_stock_price || 100; // Use actual or estimate
+      const frontStrike = actual_front_strike || stockPrice; // Use actual or ATM
+      const backStrike = actual_back_strike || stockPrice; // Use actual or ATM
       
       // Calculate stop loss and take profit prices
       const stopLossPrice = entryPrice * (1 - stop_loss_percent / 100);

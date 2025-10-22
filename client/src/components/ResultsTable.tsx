@@ -41,6 +41,7 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileResultCard } from "@/components/MobileResultCard";
 import { PayoffDiagram } from "@/components/PayoffDiagram";
+import { PaperTradeDialog } from "@/components/PaperTradeDialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,6 +62,8 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [payoffData, setPayoffData] = useState<any>(null);
   const [loadingPayoff, setLoadingPayoff] = useState(false);
+  const [paperTradeDialogOpen, setPaperTradeDialogOpen] = useState(false);
+  const [selectedTradeOpportunity, setSelectedTradeOpportunity] = useState<Opportunity | null>(null);
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
@@ -159,21 +162,37 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
     }
   };
 
-  const handlePaperTrade = async (opportunity: Opportunity) => {
+  const handlePaperTrade = (opportunity: Opportunity) => {
+    setSelectedTradeOpportunity(opportunity);
+    setPaperTradeDialogOpen(true);
+  };
+
+  const handleConfirmPaperTrade = async (data: {
+    quantity: number;
+    stop_loss_percent: number;
+    take_profit_percent: number;
+    use_actual_prices: boolean;
+    actual_entry_price?: number;
+    actual_stock_price?: number;
+    actual_front_strike?: number;
+    actual_back_strike?: number;
+  }) => {
+    if (!selectedTradeOpportunity) return;
+    
     try {
-      // Create paper trade with default 1 contract
+      // Create paper trade with user-specified parameters
       await apiRequest('POST', '/api/paper-trades', {
-        opportunity: opportunity,
-        quantity: 1,
-        stop_loss_percent: 30,  // Default 30% stop loss
-        take_profit_percent: 50, // Default 50% take profit
-        use_actual_prices: false
+        opportunity: selectedTradeOpportunity,
+        ...data
       });
       
       toast({
         title: "Paper Trade Created",
-        description: `Successfully created paper trade for ${opportunity.ticker}`,
+        description: `Successfully created paper trade for ${selectedTradeOpportunity.ticker} (${data.quantity} contracts)`,
       });
+      
+      setPaperTradeDialogOpen(false);
+      setSelectedTradeOpportunity(null);
       
       // Navigate to paper trading page
       window.location.href = '/paper-trading';
@@ -713,6 +732,14 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         }}
         opportunity={selectedOpportunity}
         payoffData={payoffData}
+      />
+      
+      {/* Paper Trade Dialog */}
+      <PaperTradeDialog
+        open={paperTradeDialogOpen}
+        onOpenChange={setPaperTradeDialogOpen}
+        opportunity={selectedTradeOpportunity}
+        onConfirm={handleConfirmPaperTrade}
       />
     </div>
   );
