@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sheet";
 
 interface HeaderProps {
-  currentPage?: "scanner" | "history" | "watchlists";
+  currentPage?: "scanner" | "history" | "watchlists" | "paper-trading";
 }
 
 export function Header({ currentPage = "scanner" }: HeaderProps) {
@@ -31,6 +31,7 @@ export function Header({ currentPage = "scanner" }: HeaderProps) {
     { href: "/", label: "Scanner", id: "scanner" },
     { href: "/watchlists", label: "Watchlists", id: "watchlists" },
     { href: "/history", label: "History", id: "history" },
+    { href: "/paper-trading", label: "Paper Trading", id: "paper-trading" },
   ];
 
   return (

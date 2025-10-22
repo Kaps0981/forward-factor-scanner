@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const currentPrices = calculateCurrentPrices({
           front_iv: trade.front_entry_iv,
           back_iv: trade.back_entry_iv
-        }, trade.stock_current_price);
+        }, trade.stock_current_price || trade.stock_entry_price);
         
         // Calculate theta decay (simplified)
         const thetaDecay = daysToFrontExpiry < 10 ? -0.05 * (10 - daysToFrontExpiry) : -0.01;

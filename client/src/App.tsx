@@ -8,6 +8,7 @@ import Scanner from "@/pages/Scanner";
 import History from "@/pages/History";
 import ScanDetail from "@/pages/ScanDetail";
 import Watchlists from "@/pages/Watchlists";
+import PaperTrading from "@/pages/PaperTrading";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/history" component={History} />
       <Route path="/history/:id" component={ScanDetail} />
       <Route path="/watchlists" component={Watchlists} />
+      <Route path="/paper-trading" component={PaperTrading} />
       <Route component={NotFound} />
     </Switch>
   );
