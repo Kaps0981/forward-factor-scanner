@@ -278,8 +278,19 @@ export class PayoffCalculator {
       dividendYield: 0
     });
 
-    // Net debit for calendar spread (pay more for back month)
+    // Net debit for calendar spread 
+    // Note: This can be NEGATIVE when front month has higher price (we collect net credit)
     const netDebit = backPricing.straddlePrice - frontPricing.straddlePrice;
+    
+    console.log("=== Calendar Spread Calculation Debug ===");
+    console.log("Stock Price:", stockPrice);
+    console.log("Strike Price:", strikePrice);
+    console.log("Front IV:", opportunity.front_iv, "Back IV:", opportunity.back_iv);
+    console.log("Front DTE:", opportunity.front_dte, "Back DTE:", opportunity.back_dte);
+    console.log("Front Straddle Price:", frontPricing.straddlePrice.toFixed(2));
+    console.log("Back Straddle Price:", backPricing.straddlePrice.toFixed(2));
+    console.log("Net Debit (back - front):", netDebit.toFixed(2));
+    console.log("Is Net Credit?", netDebit < 0 ? "YES (we receive money)" : "NO (we pay money)");
     
     // Calculate max profit at front expiration when stock is at strike
     // At front expiration, front straddle expires worthless and we still own back month straddle
@@ -376,6 +387,10 @@ export class PayoffCalculator {
       const minPrice = currentStockPrice * 0.5;
       const maxPrice = currentStockPrice * 1.5;
       const priceStep = (maxPrice - minPrice) / 100;
+      
+      // Debug logging for expiration curve
+      const isExpirationCurve = timePoint.daysToFront === 0;
+      let debugPnls: number[] = [];
 
       for (let stockPrice = minPrice; stockPrice <= maxPrice; stockPrice += priceStep) {
         const daysToBack = backDTE - (frontDTE - timePoint.daysToFront);
@@ -394,6 +409,9 @@ export class PayoffCalculator {
             dividendYield: 0
           });
           frontValue = frontPricing.straddlePrice;
+        } else {
+          // At front expiration, front straddle has only intrinsic value
+          frontValue = Math.abs(stockPrice - strikePrice);
         }
 
         if (daysToBack > 0) {
@@ -408,7 +426,10 @@ export class PayoffCalculator {
           backValue = backPricing.straddlePrice;
         }
 
-        // P&L = Back value - Front value - Initial debit
+        // Calendar Spread P&L:
+        // We initially: SELL front (receive premium), BUY back (pay premium)
+        // Net debit = back - front (negative if we receive net credit)
+        // Current P&L = (back value we own) - (front value we owe) - (initial net debit)
         const pnl = backValue - frontValue - netDebit;
         const percentMove = ((stockPrice - currentStockPrice) / currentStockPrice) * 100;
 
@@ -417,6 +438,27 @@ export class PayoffCalculator {
           pnl,
           percentMove
         });
+        
+        // Collect P&L values for debugging
+        if (isExpirationCurve) {
+          debugPnls.push(pnl);
+        }
+      }
+      
+      // Debug log for expiration curve shape
+      if (isExpirationCurve) {
+        const midIdx = Math.floor(debugPnls.length / 2);
+        const leftIdx = Math.floor(debugPnls.length / 4);
+        const rightIdx = Math.floor(3 * debugPnls.length / 4);
+        
+        console.log(`=== ${timePoint.label} Curve Shape Debug ===`);
+        console.log(`P&L at 25% (${(minPrice + (maxPrice-minPrice)*0.25).toFixed(0)}): ${debugPnls[leftIdx]?.toFixed(2)}`);
+        console.log(`P&L at 50% (${strikePrice.toFixed(0)}): ${debugPnls[midIdx]?.toFixed(2)}`);
+        console.log(`P&L at 75% (${(minPrice + (maxPrice-minPrice)*0.75).toFixed(0)}): ${debugPnls[rightIdx]?.toFixed(2)}`);
+        
+        const isTentShaped = debugPnls[midIdx] > debugPnls[leftIdx] && 
+                            debugPnls[midIdx] > debugPnls[rightIdx];
+        console.log(`Is tent-shaped? ${isTentShaped ? '✓ YES' : '✗ NO'}`);
       }
 
       curves.push({

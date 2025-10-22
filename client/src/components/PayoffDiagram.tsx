@@ -93,6 +93,49 @@ interface PayoffDiagramProps {
 export function PayoffDiagram({ open, onClose, opportunity, payoffData }: PayoffDiagramProps) {
   const [selectedTimePercent, setSelectedTimePercent] = useState(0);
   
+  // Debug logging - see what data we're receiving
+  if (payoffData) {
+    console.log("=== PayoffDiagram Debug ===");
+    console.log("Received payoffData:", payoffData);
+    console.log("Net Debit (premium):", payoffData.metrics.premium);
+    console.log("Signal:", payoffData.signal);
+    console.log("Forward Factor:", payoffData.forwardFactor);
+    console.log("Max Profit:", payoffData.metrics.maxProfit);
+    console.log("Max Loss:", payoffData.metrics.maxLoss);
+    console.log("Number of curves:", payoffData.curves.length);
+    
+    // Check the shape of the expiration curve
+    const expirationCurve = payoffData.curves.find(c => c.isExpiration);
+    if (expirationCurve) {
+      console.log("Expiration curve found, checking shape...");
+      // Sample a few points to see if it's tent-shaped
+      const midIndex = Math.floor(expirationCurve.dataPoints.length / 2);
+      const quarterIndex = Math.floor(expirationCurve.dataPoints.length / 4);
+      const threeQuarterIndex = Math.floor(3 * expirationCurve.dataPoints.length / 4);
+      
+      console.log("P&L at 25% (left):", expirationCurve.dataPoints[quarterIndex]?.pnl);
+      console.log("P&L at 50% (middle/strike):", expirationCurve.dataPoints[midIndex]?.pnl);
+      console.log("P&L at 75% (right):", expirationCurve.dataPoints[threeQuarterIndex]?.pnl);
+      console.log("Stock prices - 25%:", expirationCurve.dataPoints[quarterIndex]?.stockPrice, 
+                  "50%:", expirationCurve.dataPoints[midIndex]?.stockPrice,
+                  "75%:", expirationCurve.dataPoints[threeQuarterIndex]?.stockPrice);
+      
+      // Check if it's tent-shaped (middle should be higher than edges)
+      if (expirationCurve.dataPoints[midIndex]?.pnl > expirationCurve.dataPoints[quarterIndex]?.pnl &&
+          expirationCurve.dataPoints[midIndex]?.pnl > expirationCurve.dataPoints[threeQuarterIndex]?.pnl) {
+        console.log("✓ Curve is tent-shaped (calendar spread)");
+      } else {
+        console.log("✗ Curve is NOT tent-shaped - appears to be V-shaped (straddle)");
+      }
+      
+      // Find min and max P&L
+      const pnlValues = expirationCurve.dataPoints.map(p => p.pnl);
+      const minPnl = Math.min(...pnlValues);
+      const maxPnl = Math.max(...pnlValues);
+      console.log("P&L range - Min:", minPnl, "Max:", maxPnl);
+    }
+  }
+  
   // Prepare chart data by merging all curves - MUST be before any conditional returns
   const chartData = useMemo(() => {
     if (!payoffData) return [];
@@ -108,7 +151,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
     if (!expirationCurve) return [];
 
     // Merge data points
-    return expirationCurve.dataPoints.map((point, index) => {
+    const mergedData = expirationCurve.dataPoints.map((point, index) => {
       const data: any = {
         stockPrice: point.stockPrice,
         percentMove: point.percentMove,
@@ -125,6 +168,12 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
 
       return data;
     });
+    
+    console.log("Chart data prepared, first 3 points:", mergedData.slice(0, 3));
+    console.log("Chart data prepared, middle 3 points:", mergedData.slice(48, 51));
+    console.log("Chart data prepared, last 3 points:", mergedData.slice(-3));
+    
+    return mergedData;
   }, [payoffData, selectedTimePercent]);
 
   const selectedDays = payoffData ? Math.round(payoffData.frontDTE * (1 - selectedTimePercent / 100)) : 0;
@@ -331,9 +380,9 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     label={{ value: "BE", position: "top" }}
                   />
                   
-                  {/* P&L Lines */}
+                  {/* P&L Lines - Using linear instead of monotone for accurate tent shape */}
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="expirationPnl"
                     stroke="#10b981"
                     strokeWidth={2}
@@ -341,7 +390,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     name="At Expiration"
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="currentPnl"
                     stroke="#6366f1"
                     strokeWidth={1}
@@ -350,7 +399,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     name="Current"
                   />
                   <Line
-                    type="monotone"
+                    type="linear"
                     dataKey="selectedPnl"
                     stroke="#f59e0b"
                     strokeWidth={2}
@@ -396,6 +445,65 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
               </div>
             </CardContent>
           </Card>
+
+          {/* Debug Info Panel - Temporary for debugging */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card className="border-card-border bg-yellow-50 dark:bg-yellow-950/30">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  Debug Info (Dev Only)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-xs font-mono">
+                  {(() => {
+                    const expirationCurve = payoffData.curves.find(c => c.isExpiration);
+                    if (!expirationCurve) return <div>No expiration curve found</div>;
+                    
+                    const midIndex = Math.floor(expirationCurve.dataPoints.length / 2);
+                    const quarterIndex = Math.floor(expirationCurve.dataPoints.length / 4);
+                    const threeQuarterIndex = Math.floor(3 * expirationCurve.dataPoints.length / 4);
+                    
+                    const leftPnl = expirationCurve.dataPoints[quarterIndex]?.pnl || 0;
+                    const midPnl = expirationCurve.dataPoints[midIndex]?.pnl || 0;
+                    const rightPnl = expirationCurve.dataPoints[threeQuarterIndex]?.pnl || 0;
+                    
+                    const isTentShaped = midPnl > leftPnl && midPnl > rightPnl;
+                    
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Net Debit:</span>
+                          <span className={payoffData.metrics.premium < 0 ? 'text-green-600' : 'text-red-600'}>
+                            {formatCurrency(payoffData.metrics.premium)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>P&L @ 25%:</span>
+                          <span>{formatCurrency(leftPnl)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>P&L @ Strike:</span>
+                          <span className="font-bold text-green-600">{formatCurrency(midPnl)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>P&L @ 75%:</span>
+                          <span>{formatCurrency(rightPnl)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span>Curve Shape:</span>
+                          <span className={isTentShaped ? 'text-green-600' : 'text-red-600'}>
+                            {isTentShaped ? '✓ TENT (Calendar)' : '✗ V-SHAPE (Straddle)'}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Strategy Notes */}
           <Card className="border-card-border bg-muted/30">
