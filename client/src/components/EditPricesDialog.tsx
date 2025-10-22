@@ -53,18 +53,15 @@ export function EditPricesDialog({
     const data: any = {};
     
     // Only include changed values
+    // Send entry_price directly (net debit/credit)
     if (entryPrice && parseFloat(entryPrice) !== trade.entry_price) {
       data.entry_price = parseFloat(entryPrice);
     }
     if (stockPrice && parseFloat(stockPrice) !== trade.stock_entry_price) {
       data.stock_entry_price = parseFloat(stockPrice);
     }
-    if (frontStrike && parseFloat(frontStrike) !== trade.front_strike) {
-      data.front_strike = parseFloat(frontStrike);
-    }
-    if (backStrike && parseFloat(backStrike) !== trade.back_strike) {
-      data.back_strike = parseFloat(backStrike);
-    }
+    // Note: frontStrike and backStrike are the strike prices (fixed), not entry prices
+    // We're not allowing editing of strikes, only the prices paid for options
     if (stopLossPrice && parseFloat(stopLossPrice) !== trade.stop_loss_price) {
       data.stop_loss_price = parseFloat(stopLossPrice);
     }

@@ -505,6 +505,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // 6.5 PATCH /api/paper-trades/:id/prices - Update trade prices
+  app.patch("/api/paper-trades/:id/prices", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get the existing trade first
+      const existingTrade = await storage.getPaperTrade(id);
+      if (!existingTrade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Update the prices - validate and parse the input
+      const updateData: any = {};
+      
+      // Handle direct entry_price update (net debit/credit)
+      if (req.body.entry_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.entry_price);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          updateData.entry_price = parsedPrice;
+          
+          // Also update front/back entry prices proportionally if not provided
+          // This maintains the spread ratio while adjusting to the new net price
+          if (req.body.front_entry_price === undefined && req.body.back_entry_price === undefined) {
+            const currentSpread = Math.abs(existingTrade.front_entry_price - existingTrade.back_entry_price);
+            if (currentSpread > 0) {
+              const ratio = parsedPrice / currentSpread;
+              updateData.front_entry_price = existingTrade.front_entry_price * ratio;
+              updateData.back_entry_price = existingTrade.back_entry_price * ratio;
+            }
+          }
+        }
+      }
+      
+      // Handle individual option price updates
+      if (req.body.front_entry_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.front_entry_price);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          updateData.front_entry_price = parsedPrice;
+        }
+      }
+      if (req.body.back_entry_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.back_entry_price);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          updateData.back_entry_price = parsedPrice;
+        }
+      }
+      
+      // Handle stock price update
+      if (req.body.stock_entry_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.stock_entry_price);
+        if (!isNaN(parsedPrice) && parsedPrice > 0) {
+          updateData.stock_entry_price = parsedPrice;
+        }
+      }
+      
+      // Handle risk management prices
+      if (req.body.stop_loss_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.stop_loss_price);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          updateData.stop_loss_price = parsedPrice;
+        }
+      }
+      if (req.body.take_profit_price !== undefined) {
+        const parsedPrice = parseFloat(req.body.take_profit_price);
+        if (!isNaN(parsedPrice) && parsedPrice >= 0) {
+          updateData.take_profit_price = parsedPrice;
+        }
+      }
+      
+      // Recalculate entry price if front/back prices were updated individually
+      // (but not if entry_price was already set directly)
+      if (updateData.entry_price === undefined && 
+          (updateData.front_entry_price !== undefined || updateData.back_entry_price !== undefined)) {
+        const frontPrice = updateData.front_entry_price !== undefined ? updateData.front_entry_price : existingTrade.front_entry_price;
+        const backPrice = updateData.back_entry_price !== undefined ? updateData.back_entry_price : existingTrade.back_entry_price;
+        
+        // For BUY signal: pay net debit (front - back)
+        // For SELL signal: receive net credit (back - front)
+        updateData.entry_price = existingTrade.signal === 'BUY' 
+          ? Math.abs(frontPrice - backPrice)
+          : Math.abs(backPrice - frontPrice);
+      }
+      
+      const updatedTrade = await storage.updatePaperTrade(id, updateData);
+      
+      if (!updatedTrade) {
+        return res.status(404).json({ error: "Failed to update trade" });
+      }
+      
+      res.json({ 
+        success: true,
+        trade: updatedTrade 
+      });
+    } catch (error) {
+      console.error("Error updating paper trade prices:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to update prices",
+      });
+    }
+  });
+
   // 7. POST /api/paper-trades/:id/update-signal - Update exit timing signal
   app.post("/api/paper-trades/:id/update-signal", async (req, res) => {
     try {

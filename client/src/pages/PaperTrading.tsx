@@ -94,7 +94,7 @@ export default function PaperTrading() {
   // Update trade prices mutation
   const updateTradePricesMutation = useMutation({
     mutationFn: ({ id, data }: { id: number, data: any }) =>
-      apiRequest('PATCH', `/api/paper-trades/${id}`, data),
+      apiRequest('PATCH', `/api/paper-trades/${id}/prices`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/paper-trades'] });
       queryClient.invalidateQueries({ queryKey: ['/api/portfolio-summary'] });
