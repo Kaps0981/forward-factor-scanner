@@ -282,9 +282,9 @@ export class PayoffCalculator {
     // Net debit/credit calculation depends on signal type
     // BUY signal (negative FF): Buy front, sell back -> net cost = front - back (usually negative = we receive)
     // SELL signal (positive FF): Sell front, buy back -> net cost = back - front (usually positive = we pay)
-    // Note: We always use absolute value for netDebit in P&L calculations
-    const frontCost = frontPricing.straddlePrice;
-    const backCost = backPricing.straddlePrice;
+    // Use call option prices for calendar spread (not straddle)
+    const frontCost = frontPricing.callPrice;
+    const backCost = backPricing.callPrice;
     
     // Calculate raw net cost (positive = we pay, negative = we receive)
     const rawNetCost = opportunity.signal === 'BUY' 
@@ -437,7 +437,7 @@ export class PayoffCalculator {
       for (let stockPrice = minPrice; stockPrice <= maxPrice; stockPrice += priceStep) {
         const daysToBack = backDTE - (frontDTE - timePoint.daysToFront);
         
-        // Calculate values for both legs
+        // Calculate values for both legs - using CALL options for calendar spread
         let frontValue = 0;
         let backValue = 0;
 
@@ -450,12 +450,11 @@ export class PayoffCalculator {
             riskFreeRate: this.riskFreeRate,
             dividendYield: 0
           });
-          frontValue = frontPricing.straddlePrice;
+          // Use call price for calendar spread (not straddle)
+          frontValue = frontPricing.callPrice;
         } else {
-          // At front expiration, for calendar spreads (ATM options)
-          // Front option expires worthless at strike, has intrinsic value away from strike
-          // We use straddle intrinsic value which is the sum of call and put intrinsic values
-          frontValue = Math.abs(stockPrice - strikePrice);
+          // At front expiration, call option has intrinsic value only
+          frontValue = Math.max(0, stockPrice - strikePrice);
         }
 
         if (daysToBack > 0) {
@@ -467,7 +466,8 @@ export class PayoffCalculator {
             riskFreeRate: this.riskFreeRate,
             dividendYield: 0
           });
-          backValue = backPricing.straddlePrice;
+          // Use call price for calendar spread (not straddle)
+          backValue = backPricing.callPrice;
         }
 
         // Calculate P&L based on signal type and initial cost/credit
