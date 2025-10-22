@@ -2,7 +2,7 @@ import { type Opportunity } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, AlertTriangle, Calendar, Building, LineChart } from "lucide-react";
+import { ChevronRight, AlertTriangle, Calendar, Building, LineChart, TrendingUp } from "lucide-react";
 import { 
   Collapsible, 
   CollapsibleContent, 
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { PayoffDiagram } from "@/components/PayoffDiagram";
+import { PaperTradeDialog } from "@/components/PaperTradeDialog";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,6 +23,7 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
   const [payoffDialogOpen, setPayoffDialogOpen] = useState(false);
   const [payoffData, setPayoffData] = useState<any>(null);
   const [loadingPayoff, setLoadingPayoff] = useState(false);
+  const [paperTradeDialogOpen, setPaperTradeDialogOpen] = useState(false);
   const { toast } = useToast();
   
   const minLiquidity = Math.min(opportunity.straddle_oi || 0, opportunity.back_straddle_oi || 0);
@@ -77,6 +79,44 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
   const getRiskRewardLabel = (riskReward: number | undefined): string => {
     if (riskReward === undefined || riskReward === null) return '—';
     return `${riskReward.toFixed(1)}:1`;
+  };
+
+  const handlePaperTrade = () => {
+    setPaperTradeDialogOpen(true);
+  };
+
+  const handleConfirmPaperTrade = async (data: {
+    quantity: number;
+    stop_loss_percent: number;
+    take_profit_percent: number;
+    use_actual_prices: boolean;
+    actual_entry_price?: number;
+    actual_stock_price?: number;
+    actual_front_strike?: number;
+    actual_back_strike?: number;
+  }) => {
+    try {
+      await apiRequest('POST', '/api/paper-trades', {
+        opportunity: opportunity,
+        ...data
+      });
+      
+      toast({
+        title: "Paper Trade Created",
+        description: `Successfully created paper trade for ${opportunity.ticker} (${data.quantity} contracts)`,
+      });
+      
+      setPaperTradeDialogOpen(false);
+      
+      // Navigate to paper trading page
+      window.location.href = '/paper-trading';
+    } catch (error) {
+      toast({
+        title: "Failed to create paper trade",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -301,10 +341,20 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
               </div>
             )}
 
-            {/* View Payoff Button */}
-            <div className="mt-4 pt-3 border-t border-card-border">
+            {/* Action Buttons */}
+            <div className="mt-4 pt-3 border-t border-card-border space-y-2">
               <Button
                 variant="default"
+                size="sm"
+                className="w-full"
+                onClick={handlePaperTrade}
+                data-testid={`button-paper-trade-mobile-${opportunity.ticker}`}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Add to Paper Trading
+              </Button>
+              <Button
+                variant="outline"
                 size="sm"
                 className="w-full"
                 onClick={handleViewPayoff}
@@ -328,6 +378,14 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
         }}
         opportunity={opportunity}
         payoffData={payoffData}
+      />
+      
+      {/* Paper Trade Dialog */}
+      <PaperTradeDialog
+        open={paperTradeDialogOpen}
+        onOpenChange={setPaperTradeDialogOpen}
+        opportunity={opportunity}
+        onConfirm={handleConfirmPaperTrade}
       />
     </Card>
   );

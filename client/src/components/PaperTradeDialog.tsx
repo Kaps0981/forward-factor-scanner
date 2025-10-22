@@ -256,10 +256,19 @@ export function PaperTradeDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
-          <Button onClick={handleConfirm} data-testid="button-create-trade">
+          <Button 
+            type="button"
+            onClick={handleConfirm} 
+            data-testid="button-create-trade"
+            className="pointer-events-auto"
+          >
             Create Paper Trade
           </Button>
         </DialogFooter>
