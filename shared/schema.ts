@@ -288,3 +288,45 @@ export const insertPortfolioSummarySchema = createInsertSchema(portfolioSummary)
   .omit({ id: true, date: true });
 export type InsertPortfolioSummary = z.infer<typeof insertPortfolioSummarySchema>;
 export type PortfolioSummary = typeof portfolioSummary.$inferSelect;
+
+// Paper Trade Request Schemas
+export const createPaperTradeSchema = z.object({
+  opportunity: opportunitySchema,
+  quantity: z.number().min(1).max(100).default(1),
+  stop_loss_percent: z.number().min(0).max(100).default(30), // Default 30% stop loss
+  take_profit_percent: z.number().min(0).max(500).default(50), // Default 50% take profit
+  use_actual_prices: z.boolean().default(false), // Whether to use real current prices
+});
+
+export type CreatePaperTradeRequest = z.infer<typeof createPaperTradeSchema>;
+
+export const updatePaperTradeSchema = z.object({
+  current_price: z.number().optional(),
+  current_pnl: z.number().optional(),
+  current_pnl_percent: z.number().optional(),
+  stock_current_price: z.number().optional(),
+  front_current_iv: z.number().optional(),
+  back_current_iv: z.number().optional(),
+  days_to_front_expiry: z.number().optional(),
+  theta_decay: z.number().optional(),
+  exit_signal: z.enum(['GREEN', 'AMBER', 'RED', 'TAKE_PROFIT', 'STOP_LOSS']).optional(),
+  exit_signal_reason: z.string().optional(),
+  news_alerts: z.array(z.any()).optional(),
+  has_earnings_alert: z.boolean().optional(),
+});
+
+export type UpdatePaperTradeRequest = z.infer<typeof updatePaperTradeSchema>;
+
+export const closePaperTradeSchema = z.object({
+  exit_price: z.number(),
+  exit_reason: z.string().max(100),
+});
+
+export type ClosePaperTradeRequest = z.infer<typeof closePaperTradeSchema>;
+
+export const updateExitSignalSchema = z.object({
+  signal: z.enum(['GREEN', 'AMBER', 'RED', 'TAKE_PROFIT', 'STOP_LOSS']),
+  reason: z.string(),
+});
+
+export type UpdateExitSignalRequest = z.infer<typeof updateExitSignalSchema>;

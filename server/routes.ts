@@ -1,7 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { ForwardFactorScanner, DEFAULT_TICKERS } from "./scanner";
-import { scanRequestSchema, insertWatchlistSchema } from "@shared/schema";
+import { 
+  scanRequestSchema, 
+  insertWatchlistSchema, 
+  createPaperTradeSchema,
+  updatePaperTradeSchema,
+  closePaperTradeSchema,
+  updateExitSignalSchema
+} from "@shared/schema";
 import { storage } from "./storage";
 import { PolygonService } from "./polygon";
 import { sendHighFFAlert } from "./email";
@@ -163,6 +170,473 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error deleting watchlist:", error);
       res.status(500).json({
         error: error instanceof Error ? error.message : "Failed to delete watchlist",
+      });
+    }
+  });
+
+  // Paper Trading Endpoints
+
+  // Helper function to calculate exit timing signal
+  function calculateExitSignal(trade: any): { signal: string; reason: string } {
+    const daysToExpiry = trade.days_to_front_expiry || 0;
+    const currentPnlPercent = trade.current_pnl_percent || 0;
+    const stopLossPercent = -30; // Default 30% stop loss
+    const takeProfitPercent = 50; // Default 50% take profit
+    
+    // Check stop loss
+    if (currentPnlPercent <= stopLossPercent) {
+      return {
+        signal: 'STOP_LOSS',
+        reason: `Stop loss triggered at ${currentPnlPercent.toFixed(2)}% loss`
+      };
+    }
+    
+    // Check take profit
+    if (currentPnlPercent >= takeProfitPercent) {
+      return {
+        signal: 'TAKE_PROFIT',
+        reason: `Take profit target reached at ${currentPnlPercent.toFixed(2)}% profit`
+      };
+    }
+    
+    // Check days to expiry
+    if (daysToExpiry < 3) {
+      return {
+        signal: 'RED',
+        reason: `Only ${daysToExpiry} days to front month expiry - exit immediately to avoid theta decay`
+      };
+    }
+    
+    if (daysToExpiry <= 7) {
+      // Check if P&L is approaching targets
+      if (currentPnlPercent < -20 || currentPnlPercent > 40) {
+        return {
+          signal: 'AMBER',
+          reason: `${daysToExpiry} days to expiry with P&L at ${currentPnlPercent.toFixed(2)}% - consider exit`
+        };
+      }
+      return {
+        signal: 'AMBER',
+        reason: `${daysToExpiry} days to expiry - monitor closely for exit opportunity`
+      };
+    }
+    
+    // Check for high theta decay (placeholder - would need actual calculation)
+    if (trade.theta_decay && Math.abs(trade.theta_decay) > 0.1) {
+      return {
+        signal: 'AMBER',
+        reason: `High theta decay of ${trade.theta_decay.toFixed(3)} - consider reducing position`
+      };
+    }
+    
+    // Default to GREEN
+    return {
+      signal: 'GREEN',
+      reason: `Position is safe to hold - ${daysToExpiry} days to expiry with ${currentPnlPercent.toFixed(2)}% P&L`
+    };
+  }
+
+  // Helper function to calculate current prices (simplified - would need actual pricing model)
+  function calculateCurrentPrices(opportunity: any, stockPrice?: number) {
+    // This is a simplified calculation - in production, you'd use proper options pricing
+    const randomPnl = (Math.random() - 0.5) * 20; // Random P&L for demo
+    const entryPrice = 1.5; // Simplified entry price
+    const currentPrice = entryPrice * (1 + randomPnl / 100);
+    
+    return {
+      current_price: currentPrice,
+      current_pnl: (currentPrice - entryPrice) * 100, // Assuming 100 quantity
+      current_pnl_percent: randomPnl,
+      stock_current_price: stockPrice || 100,
+      front_current_iv: opportunity.front_iv * (1 + (Math.random() - 0.5) * 0.1),
+      back_current_iv: opportunity.back_iv * (1 + (Math.random() - 0.5) * 0.1),
+    };
+  }
+
+  // 1. GET /api/paper-trades - Get all paper trades with optional status filter
+  app.get("/api/paper-trades", async (req, res) => {
+    try {
+      const status = req.query.status as string | undefined;
+      const trades = await storage.getPaperTrades(status);
+      
+      // Calculate exit signals for open trades
+      const tradesWithSignals = trades.map(trade => {
+        if (trade.status === 'OPEN') {
+          const exitSignal = calculateExitSignal(trade);
+          return {
+            ...trade,
+            exit_signal: trade.exit_signal || exitSignal.signal,
+            exit_signal_reason: trade.exit_signal_reason || exitSignal.reason
+          };
+        }
+        return trade;
+      });
+      
+      res.json({ trades: tradesWithSignals });
+    } catch (error) {
+      console.error("Error fetching paper trades:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch paper trades",
+      });
+    }
+  });
+
+  // 2. GET /api/paper-trades/open - Get only open positions
+  app.get("/api/paper-trades/open", async (req, res) => {
+    try {
+      const trades = await storage.getOpenPaperTrades();
+      
+      // Calculate and add exit signals
+      const tradesWithSignals = trades.map(trade => {
+        const exitSignal = calculateExitSignal(trade);
+        return {
+          ...trade,
+          exit_signal: trade.exit_signal || exitSignal.signal,
+          exit_signal_reason: trade.exit_signal_reason || exitSignal.reason
+        };
+      });
+      
+      res.json({ trades: tradesWithSignals });
+    } catch (error) {
+      console.error("Error fetching open paper trades:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch open paper trades",
+      });
+    }
+  });
+
+  // 3. GET /api/paper-trades/:id - Get specific trade details
+  app.get("/api/paper-trades/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const trade = await storage.getPaperTrade(id);
+      
+      if (!trade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Add exit signal if open
+      if (trade.status === 'OPEN') {
+        const exitSignal = calculateExitSignal(trade);
+        return res.json({
+          trade: {
+            ...trade,
+            exit_signal: trade.exit_signal || exitSignal.signal,
+            exit_signal_reason: trade.exit_signal_reason || exitSignal.reason
+          }
+        });
+      }
+      
+      res.json({ trade });
+    } catch (error) {
+      console.error("Error fetching paper trade:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch paper trade",
+      });
+    }
+  });
+
+  // 4. POST /api/paper-trades - Create new paper trade from opportunity
+  app.post("/api/paper-trades", async (req, res) => {
+    try {
+      const validationResult = createPaperTradeSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid paper trade data",
+          details: validationResult.error.errors,
+        });
+      }
+
+      const { opportunity, quantity, stop_loss_percent, take_profit_percent, use_actual_prices } = validationResult.data;
+      
+      // Calculate entry prices (simplified - would use actual pricing model)
+      const entryPrice = 1.5; // Simplified - would calculate from front/back IV spread
+      const stockPrice = 100; // Would fetch actual stock price
+      const frontStrike = stockPrice; // ATM for simplicity
+      const backStrike = stockPrice;
+      
+      // Calculate stop loss and take profit prices
+      const stopLossPrice = entryPrice * (1 - stop_loss_percent / 100);
+      const takeProfitPrice = entryPrice * (1 + take_profit_percent / 100);
+      
+      // Calculate days to expiry
+      const frontExpiryDate = new Date(opportunity.front_date);
+      const daysToFrontExpiry = Math.floor((frontExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      
+      // Create paper trade
+      const paperTrade = await storage.createPaperTrade({
+        ticker: opportunity.ticker,
+        signal: opportunity.signal,
+        status: 'OPEN',
+        quantity: quantity || 1,
+        front_strike: frontStrike,
+        back_strike: backStrike,
+        front_expiry: opportunity.front_date,
+        back_expiry: opportunity.back_date,
+        entry_price: entryPrice,
+        front_entry_iv: opportunity.front_iv,
+        back_entry_iv: opportunity.back_iv,
+        stock_entry_price: stockPrice,
+        current_price: entryPrice,
+        current_pnl: 0,
+        current_pnl_percent: 0,
+        stock_current_price: stockPrice,
+        front_current_iv: opportunity.front_iv,
+        back_current_iv: opportunity.back_iv,
+        stop_loss_price: stopLossPrice,
+        take_profit_price: takeProfitPrice,
+        max_risk: entryPrice * quantity,
+        forward_factor: opportunity.forward_factor,
+        original_scan_id: null,
+        days_to_front_expiry: daysToFrontExpiry,
+        theta_decay: 0,
+      });
+      
+      // Calculate initial exit signal
+      const exitSignal = calculateExitSignal(paperTrade);
+      
+      // Update with exit signal
+      const updatedTrade = await storage.updatePaperTrade(paperTrade.id, {
+        exit_signal: exitSignal.signal,
+        exit_signal_reason: exitSignal.reason
+      });
+      
+      res.json({ 
+        success: true,
+        trade: updatedTrade || paperTrade 
+      });
+    } catch (error) {
+      console.error("Error creating paper trade:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to create paper trade",
+      });
+    }
+  });
+
+  // 5. PATCH /api/paper-trades/:id - Update trade (current prices, P&L, exit signals)
+  app.patch("/api/paper-trades/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const validationResult = updatePaperTradeSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid update data",
+          details: validationResult.error.errors,
+        });
+      }
+      
+      // Update days to expiry if not provided
+      if (!validationResult.data.days_to_front_expiry) {
+        const trade = await storage.getPaperTrade(id);
+        if (trade && trade.front_expiry) {
+          const frontExpiryDate = new Date(trade.front_expiry);
+          const daysToFrontExpiry = Math.floor((frontExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          validationResult.data.days_to_front_expiry = daysToFrontExpiry;
+        }
+      }
+      
+      const updatedTrade = await storage.updatePaperTrade(id, validationResult.data);
+      
+      if (!updatedTrade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Recalculate exit signal if trade is still open
+      if (updatedTrade.status === 'OPEN') {
+        const exitSignal = calculateExitSignal(updatedTrade);
+        const tradeWithSignal = await storage.updatePaperTradeExitSignal(id, exitSignal.signal, exitSignal.reason);
+        return res.json({ trade: tradeWithSignal || updatedTrade });
+      }
+      
+      res.json({ trade: updatedTrade });
+    } catch (error) {
+      console.error("Error updating paper trade:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to update paper trade",
+      });
+    }
+  });
+
+  // 6. POST /api/paper-trades/:id/close - Close a trade
+  app.post("/api/paper-trades/:id/close", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const validationResult = closePaperTradeSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid close data",
+          details: validationResult.error.errors,
+        });
+      }
+      
+      const { exit_price, exit_reason } = validationResult.data;
+      
+      const closedTrade = await storage.closePaperTrade(id, exit_price, exit_reason);
+      
+      if (!closedTrade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Update portfolio summary
+      await storage.calculatePortfolioMetrics();
+      
+      res.json({ 
+        success: true,
+        trade: closedTrade 
+      });
+    } catch (error) {
+      console.error("Error closing paper trade:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to close paper trade",
+      });
+    }
+  });
+
+  // 7. POST /api/paper-trades/:id/update-signal - Update exit timing signal
+  app.post("/api/paper-trades/:id/update-signal", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const validationResult = updateExitSignalSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          error: "Invalid signal data",
+          details: validationResult.error.errors,
+        });
+      }
+      
+      const { signal, reason } = validationResult.data;
+      
+      const updatedTrade = await storage.updatePaperTradeExitSignal(id, signal, reason);
+      
+      if (!updatedTrade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      res.json({ 
+        success: true,
+        trade: updatedTrade 
+      });
+    } catch (error) {
+      console.error("Error updating exit signal:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to update exit signal",
+      });
+    }
+  });
+
+  // 8. GET /api/paper-trades/:id/news - Get news events for a trade
+  app.get("/api/paper-trades/:id/news", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Get the trade to get the ticker
+      const trade = await storage.getPaperTrade(id);
+      if (!trade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Get news events for this trade
+      const newsEvents = await storage.getTradeNewsEvents(id);
+      
+      // Also get recent news for the ticker
+      const recentNews = await storage.getRecentNewsForTicker(trade.ticker);
+      
+      res.json({ 
+        trade_id: id,
+        ticker: trade.ticker,
+        trade_specific_news: newsEvents,
+        recent_ticker_news: recentNews
+      });
+    } catch (error) {
+      console.error("Error fetching trade news:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch trade news",
+      });
+    }
+  });
+
+  // 9. GET /api/portfolio-summary - Get overall portfolio P&L summary
+  app.get("/api/portfolio-summary", async (req, res) => {
+    try {
+      const summary = await storage.getPortfolioSummary();
+      
+      if (!summary) {
+        // Create initial portfolio summary
+        const newSummary = await storage.calculatePortfolioMetrics();
+        return res.json({ summary: newSummary });
+      }
+      
+      res.json({ summary });
+    } catch (error) {
+      console.error("Error fetching portfolio summary:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to fetch portfolio summary",
+      });
+    }
+  });
+
+  // 10. POST /api/paper-trades/update-all-prices - Update current prices for all open trades
+  app.post("/api/paper-trades/update-all-prices", async (req, res) => {
+    try {
+      const openTrades = await storage.getOpenPaperTrades();
+      
+      if (openTrades.length === 0) {
+        return res.json({ 
+          success: true,
+          message: "No open trades to update",
+          updated_count: 0 
+        });
+      }
+      
+      const updatePromises = openTrades.map(async (trade) => {
+        // Calculate days to expiry
+        const frontExpiryDate = new Date(trade.front_expiry);
+        const daysToFrontExpiry = Math.floor((frontExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        
+        // Calculate current prices (simplified - would use actual pricing model)
+        const currentPrices = calculateCurrentPrices({
+          front_iv: trade.front_entry_iv,
+          back_iv: trade.back_entry_iv
+        }, trade.stock_current_price);
+        
+        // Calculate theta decay (simplified)
+        const thetaDecay = daysToFrontExpiry < 10 ? -0.05 * (10 - daysToFrontExpiry) : -0.01;
+        
+        // Update trade with new prices
+        const updateData = {
+          ...currentPrices,
+          days_to_front_expiry: daysToFrontExpiry,
+          theta_decay: thetaDecay
+        };
+        
+        const updatedTrade = await storage.updatePaperTrade(trade.id, updateData);
+        
+        // Update exit signal
+        if (updatedTrade) {
+          const exitSignal = calculateExitSignal(updatedTrade);
+          await storage.updatePaperTradeExitSignal(trade.id, exitSignal.signal, exitSignal.reason);
+        }
+        
+        return updatedTrade;
+      });
+      
+      const updatedTrades = await Promise.all(updatePromises);
+      
+      // Recalculate portfolio metrics
+      await storage.calculatePortfolioMetrics();
+      
+      res.json({ 
+        success: true,
+        updated_count: updatedTrades.length,
+        trades: updatedTrades 
+      });
+    } catch (error) {
+      console.error("Error updating all prices:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to update prices",
       });
     }
   });

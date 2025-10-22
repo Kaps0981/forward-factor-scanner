@@ -217,7 +217,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updatePortfolioSummary(summary: Partial<InsertPortfolioSummary>): Promise<PortfolioSummary> {
-    const existing = await this.getPortfolioSummary();
+    // Check if a portfolio summary exists WITHOUT creating a new one (to prevent infinite loop)
+    const [existing] = await db.select().from(portfolioSummary)
+      .orderBy(desc(portfolioSummary.date))
+      .limit(1);
     
     if (existing && existing.id) {
       const [result] = await db
