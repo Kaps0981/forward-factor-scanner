@@ -233,101 +233,130 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-auto p-0">
+      <DialogContent className="max-w-7xl max-h-[95vh] overflow-auto p-0">
         <div className="p-6 space-y-6">
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-                  {opportunity.ticker} Calendar Spread Payoff Analysis
-                  <Badge variant={opportunity.signal === 'BUY' ? 'default' : 'secondary'}>
-                    {opportunity.signal}
-                  </Badge>
-                </DialogTitle>
-                <DialogDescription className="mt-2">
-                  Forward Factor: {formatPercent(payoffData.forwardFactor)} • 
-                  Front: {payoffData.frontDTE}d @ {payoffData.frontIV}% IV • 
-                  Back: {payoffData.backDTE}d @ {payoffData.backIV}% IV
-                </DialogDescription>
-              </div>
-            </div>
+            <DialogTitle className="text-2xl font-bold">
+              Calendar Spread Payoff Analysis
+            </DialogTitle>
+            <DialogDescription className="mt-2">
+              {opportunity.ticker} • Forward Factor: {formatPercent(payoffData.forwardFactor)} • 
+              Front: {payoffData.frontDTE}d @ {payoffData.frontIV}% IV • 
+              Back: {payoffData.backDTE}d @ {payoffData.backIV}% IV
+            </DialogDescription>
           </DialogHeader>
 
-          {/* Key Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="border-card-border">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <DollarSign className="h-3 w-3" />
-                  NET DEBIT PAID
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <div className="text-xl font-bold text-red-500 dark:text-red-400">
-                  {formatCurrency(payoffData.metrics.premium)}
-                </div>
-                <p className="text-xs text-muted-foreground">Max Loss</p>
-              </CardContent>
-            </Card>
+          {/* Direction Indicator */}
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-slate-900 dark:bg-slate-950 border border-slate-800">
+            <span className="text-sm font-medium text-slate-400">Direction:</span>
+            <div className={`flex items-center gap-2 text-2xl font-bold ${
+              opportunity.signal === 'BUY' 
+                ? 'text-green-500' 
+                : 'text-red-500'
+            }`}>
+              {opportunity.signal === 'BUY' ? (
+                <TrendingUp className="h-6 w-6" />
+              ) : (
+                <TrendingDown className="h-6 w-6" />
+              )}
+              <span>{opportunity.signal}</span>
+            </div>
+          </div>
 
-            <Card className="border-card-border">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  BREAKEVENS
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <div className="text-sm font-mono">
-                  <div>{formatCurrency(payoffData.metrics.upperBreakeven)}</div>
-                  <div>{formatCurrency(payoffData.metrics.lowerBreakeven)}</div>
+          {/* Strategy Analysis Section */}
+          <div className="p-6 rounded-lg bg-slate-900 dark:bg-slate-950 border border-slate-800">
+            <h3 className="text-lg font-semibold text-slate-200 mb-6">Strategy Analysis</h3>
+            
+            {/* Row 1: Max Profit, Breakeven, Max Loss */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-slate-800">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Max Profit</div>
+                <div className="text-3xl font-bold text-green-500 tabular-nums">
+                  {typeof payoffData.metrics.maxProfit === 'string' 
+                    ? `$${payoffData.metrics.maxProfit}` 
+                    : formatCurrency(Number(payoffData.metrics.maxProfit))}
                 </div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-slate-500">At Strike Price</div>
+              </div>
 
-            <Card className="border-card-border">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  PROFIT PROB
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                <div className="text-xl font-bold text-green-600 dark:text-green-400">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Breakeven</div>
+                <div className="space-y-1 mt-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Lower:</span>
+                    <span className="text-xl font-semibold text-slate-200 tabular-nums">
+                      {formatCurrency(payoffData.metrics.lowerBreakeven)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Upper:</span>
+                    <span className="text-xl font-semibold text-slate-200 tabular-nums">
+                      {formatCurrency(payoffData.metrics.upperBreakeven)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Max Loss</div>
+                <div className="text-3xl font-bold text-red-500 tabular-nums">
+                  -{formatCurrency(Math.abs(payoffData.metrics.premium))}
+                </div>
+                <div className="text-xs text-slate-500">Net Debit Paid</div>
+              </div>
+            </div>
+
+            {/* Row 2: Profit Probability, Delta, Theta */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Profit Probability</div>
+                <div className={`text-3xl font-bold tabular-nums ${
+                  payoffData.metrics.profitProbability >= 60 
+                    ? 'text-green-500' 
+                    : payoffData.metrics.profitProbability >= 40 
+                    ? 'text-amber-500'
+                    : 'text-red-500'
+                }`}>
                   {payoffData.metrics.profitProbability.toFixed(1)}%
                 </div>
-                <p className="text-xs text-muted-foreground">Based on IV</p>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-slate-500">IV-Based Estimate</div>
+              </div>
 
-            <Card className="border-card-border">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <Activity className="h-3 w-3" />
-                  GREEKS
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4 space-y-0.5">
-                <div className="flex justify-between text-xs">
-                  <span>Δ</span>
-                  <span className="font-mono">{payoffData.metrics.currentDelta.toFixed(3)}</span>
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Delta</div>
+                <div className={`text-3xl font-bold tabular-nums ${
+                  Math.abs(payoffData.metrics.currentDelta) < 0.1 
+                    ? 'text-slate-400' 
+                    : payoffData.metrics.currentDelta > 0 
+                    ? 'text-green-500' 
+                    : 'text-red-500'
+                }`}>
+                  {payoffData.metrics.currentDelta >= 0 ? '+' : ''}{payoffData.metrics.currentDelta.toFixed(3)}
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span>Θ</span>
-                  <span className="font-mono text-green-600 dark:text-green-400">
-                    {payoffData.metrics.currentTheta.toFixed(2)}
-                  </span>
+                <div className="text-xs text-slate-500">Position Delta</div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Theta</div>
+                <div className={`text-3xl font-bold tabular-nums ${
+                  payoffData.metrics.currentTheta > 0 
+                    ? 'text-green-500' 
+                    : 'text-red-500'
+                }`}>
+                  {payoffData.metrics.currentTheta >= 0 ? '+' : ''}{payoffData.metrics.currentTheta.toFixed(2)}
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span>Γ</span>
-                  <span className="font-mono">{payoffData.metrics.currentGamma.toFixed(4)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span>ν</span>
-                  <span className="font-mono">{payoffData.metrics.currentVega.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
+                <div className="text-xs text-slate-500">Time Decay</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Price Display */}
+          <div className="flex items-center justify-center gap-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <span className="text-sm font-medium text-muted-foreground">Current Price:</span>
+            <span className="text-2xl font-bold text-primary tabular-nums">
+              {formatCurrency(payoffData.currentStockPrice)}
+            </span>
           </div>
 
           {/* Payoff Chart */}
@@ -341,6 +370,34 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                   data={chartData}
                   margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
                 >
+                  {/* Gradient definitions for profit/loss areas */}
+                  <defs>
+                    <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.4}/>
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.05}/>
+                    </linearGradient>
+                    <linearGradient id="lossGradient" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.4}/>
+                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0.05}/>
+                    </linearGradient>
+                    <linearGradient id="profitGradientCurrent" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3}/>
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02}/>
+                    </linearGradient>
+                    <linearGradient id="lossGradientCurrent" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.3}/>
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.02}/>
+                    </linearGradient>
+                    <linearGradient id="profitGradientSelected" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.35}/>
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.03}/>
+                    </linearGradient>
+                    <linearGradient id="lossGradientSelected" x1="0" y1="1" x2="0" y2="0">
+                      <stop offset="0%" stopColor="#dc2626" stopOpacity={0.35}/>
+                      <stop offset="100%" stopColor="#dc2626" stopOpacity={0.03}/>
+                    </linearGradient>
+                  </defs>
+
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis
                     dataKey="stockPrice"
@@ -350,64 +407,99 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     label={{ value: 'Stock Price', position: 'insideBottom', offset: -5 }}
                   />
                   <YAxis
-                    tickFormatter={(value) => `$${value.toFixed(0)}`}
+                    tickFormatter={(value) => {
+                      const formatted = Math.abs(value) >= 1000 
+                        ? `$${(value / 1000).toFixed(1)}k` 
+                        : `$${value.toFixed(0)}`;
+                      return value < 0 ? formatted : formatted;
+                    }}
                     label={{ value: 'Profit / Loss', angle: -90, position: 'insideLeft' }}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   
                   {/* Reference lines */}
+                  {/* Bold breakeven line at y=0 */}
                   <ReferenceLine 
                     y={0} 
-                    stroke="hsl(var(--muted-foreground))" 
-                    strokeDasharray="3 3"
+                    stroke="hsl(var(--foreground))" 
+                    strokeWidth={2}
+                    opacity={0.4}
+                    label={{ value: "Breakeven", position: "left", fill: "hsl(var(--foreground))", fontSize: 12 }}
                   />
+                  
+                  {/* Current stock price - made more prominent */}
                   <ReferenceLine
                     x={payoffData.currentStockPrice}
                     stroke="hsl(var(--primary))"
-                    strokeWidth={2}
-                    label={{ value: "Current", position: "top" }}
+                    strokeWidth={2.5}
+                    strokeDasharray="none"
+                    label={{ 
+                      value: `Current: $${payoffData.currentStockPrice.toFixed(2)}`, 
+                      position: "top",
+                      fill: "hsl(var(--primary))",
+                      fontWeight: "bold"
+                    }}
                   />
+                  
+                  {/* Breakeven points */}
                   <ReferenceLine
                     x={payoffData.metrics.upperBreakeven}
-                    stroke="hsl(var(--yellow-500))"
+                    stroke="#f59e0b"
+                    strokeWidth={1.5}
                     strokeDasharray="5 5"
-                    label={{ value: "BE", position: "top" }}
+                    opacity={0.7}
+                    label={{ value: "Upper BE", position: "top", fontSize: 11 }}
                   />
                   <ReferenceLine
                     x={payoffData.metrics.lowerBreakeven}
-                    stroke="hsl(var(--yellow-500))"
+                    stroke="#f59e0b"
+                    strokeWidth={1.5}
                     strokeDasharray="5 5"
-                    label={{ value: "BE", position: "top" }}
+                    opacity={0.7}
+                    label={{ value: "Lower BE", position: "top", fontSize: 11 }}
                   />
                   
-                  {/* P&L Lines - Using linear instead of monotone for accurate tent shape */}
-                  <Line
-                    type="linear"
-                    dataKey="expirationPnl"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                    name="At Expiration"
-                  />
-                  <Line
+                  {/* P&L Areas with conditional fills for profit/loss */}
+                  {/* Current time curve */}
+                  <Area
                     type="linear"
                     dataKey="currentPnl"
                     stroke="#6366f1"
-                    strokeWidth={1}
+                    strokeWidth={1.5}
                     strokeDasharray="5 5"
-                    dot={false}
+                    fill="url(#profitGradientCurrent)"
+                    fillOpacity={0.3}
                     name="Current"
                   />
-                  <Line
+                  
+                  {/* Selected time curve */}
+                  <Area
                     type="linear"
                     dataKey="selectedPnl"
                     stroke="#f59e0b"
                     strokeWidth={2}
-                    dot={false}
+                    fill="url(#profitGradientSelected)"
+                    fillOpacity={0.3}
                     name={`${selectedDays}d to Exp`}
                   />
                   
-                  <Legend />
+                  {/* Expiration curve - most prominent */}
+                  <Area
+                    type="linear"
+                    dataKey="expirationPnl"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fill="url(#profitGradient)"
+                    fillOpacity={0.3}
+                    name="At Expiration"
+                  />
+                  
+                  <Legend 
+                    wrapperStyle={{
+                      paddingTop: '10px',
+                      fontSize: '12px'
+                    }}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </CardContent>
