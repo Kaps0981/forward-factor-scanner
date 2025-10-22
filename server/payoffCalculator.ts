@@ -247,7 +247,8 @@ export class PayoffCalculator {
 
   /**
    * Calculate payoff for a calendar spread (more complex Forward Factor trade)
-   * This sells front month and buys back month
+   * BUY signal: Buy front month, sell back month (reverse calendar)
+   * SELL signal: Sell front month, buy back month (calendar spread)
    */
   calculateCalendarSpreadPayoff(
     opportunity: Opportunity,
@@ -259,7 +260,7 @@ export class PayoffCalculator {
     const frontIV = opportunity.front_iv / 100;
     const backIV = opportunity.back_iv / 100;
     
-    // Calculate initial position value (sell front, buy back)
+    // Calculate initial position values
     const frontPricing = BlackScholesModel.calculate({
       stockPrice,
       strikePrice,
@@ -278,22 +279,25 @@ export class PayoffCalculator {
       dividendYield: 0
     });
 
-    // Net debit for calendar spread 
-    // Note: This can be NEGATIVE when front month has higher price (we collect net credit)
-    const netDebit = backPricing.straddlePrice - frontPricing.straddlePrice;
+    // Net debit calculation depends on signal type
+    // BUY signal (negative FF): Buy front, sell back -> net debit = front - back
+    // SELL signal (positive FF): Sell front, buy back -> net debit = back - front
+    const netDebit = opportunity.signal === 'BUY' 
+      ? frontPricing.straddlePrice - backPricing.straddlePrice  // We pay for front, receive for back
+      : backPricing.straddlePrice - frontPricing.straddlePrice; // We receive for front, pay for back
     
     console.log("=== Calendar Spread Calculation Debug ===");
+    console.log("Signal Type:", opportunity.signal);
     console.log("Stock Price:", stockPrice);
     console.log("Strike Price:", strikePrice);
     console.log("Front IV:", opportunity.front_iv, "Back IV:", opportunity.back_iv);
     console.log("Front DTE:", opportunity.front_dte, "Back DTE:", opportunity.back_dte);
     console.log("Front Straddle Price:", frontPricing.straddlePrice.toFixed(2));
     console.log("Back Straddle Price:", backPricing.straddlePrice.toFixed(2));
-    console.log("Net Debit (back - front):", netDebit.toFixed(2));
-    console.log("Is Net Credit?", netDebit < 0 ? "YES (we receive money)" : "NO (we pay money)");
+    console.log("Net Debit:", netDebit.toFixed(2));
+    console.log("Strategy:", opportunity.signal === 'BUY' ? 'REVERSE CALENDAR (Buy front, Sell back)' : 'CALENDAR (Sell front, Buy back)');
     
-    // Calculate max profit at front expiration when stock is at strike
-    // At front expiration, front straddle expires worthless and we still own back month straddle
+    // Calculate max profit at front expiration
     const daysRemainingInBack = opportunity.back_dte - opportunity.front_dte;
     const backValueAtFrontExp = BlackScholesModel.calculate({
       stockPrice: strikePrice,
@@ -304,7 +308,19 @@ export class PayoffCalculator {
       dividendYield: 0
     });
     
-    const maxProfitValue = backValueAtFrontExp.straddlePrice - Math.abs(netDebit);
+    // Max profit calculation depends on signal type
+    let maxProfitValue: number;
+    if (opportunity.signal === 'BUY') {
+      // For BUY (reverse calendar): max profit when stock moves far from strike
+      // At expiration, front straddle we own has high value, back straddle we're short has less value
+      // This is harder to calculate precisely, but roughly: front IV * stockPrice * sqrt(time) - netDebit
+      const expectedMove = stockPrice * frontIV * Math.sqrt(opportunity.front_dte / 365);
+      maxProfitValue = expectedMove * 0.8 - Math.abs(netDebit); // Conservative estimate
+    } else {
+      // For SELL (regular calendar): max profit when stock stays at strike
+      // Front expires worthless, we still own back month
+      maxProfitValue = backValueAtFrontExp.straddlePrice - Math.abs(netDebit);
+    }
     
     // For calendar spreads, breakevens are more complex and depend on back month value
     // Approximate breakevens based on typical calendar spread characteristics
@@ -321,7 +337,8 @@ export class PayoffCalculator {
       backIV,
       opportunity.front_dte,
       opportunity.back_dte,
-      netDebit
+      netDebit,
+      opportunity.signal
     );
 
     // Calculate probability of profit based on the spread characteristics
@@ -331,8 +348,26 @@ export class PayoffCalculator {
       frontIV,
       backIV,
       opportunity.front_dte,
-      opportunity.back_dte
+      opportunity.back_dte,
+      opportunity.signal
     );
+
+    // Calculate Greeks based on position type
+    const greeks = opportunity.signal === 'BUY' 
+      ? {
+          // BUY: Long front, Short back
+          currentDelta: frontPricing.straddleDelta - backPricing.straddleDelta,
+          currentTheta: backPricing.straddleTheta - frontPricing.straddleTheta, // Negative theta (we own front)
+          currentGamma: frontPricing.straddleGamma - backPricing.straddleGamma,
+          currentVega: frontPricing.straddleVega - backPricing.straddleVega
+        }
+      : {
+          // SELL: Short front, Long back
+          currentDelta: backPricing.straddleDelta - frontPricing.straddleDelta,
+          currentTheta: frontPricing.straddleTheta - backPricing.straddleTheta, // Positive theta (we're short front)
+          currentGamma: backPricing.straddleGamma - frontPricing.straddleGamma,
+          currentVega: backPricing.straddleVega - frontPricing.straddleVega
+        };
 
     return {
       curves,
@@ -343,10 +378,7 @@ export class PayoffCalculator {
         maxLoss: Math.abs(netDebit),
         maxProfit: maxProfitValue.toFixed(2),
         profitProbability,
-        currentDelta: backPricing.straddleDelta - frontPricing.straddleDelta,
-        currentTheta: frontPricing.straddleTheta - backPricing.straddleTheta, // Positive theta
-        currentGamma: backPricing.straddleGamma - frontPricing.straddleGamma,
-        currentVega: backPricing.straddleVega - frontPricing.straddleVega
+        ...greeks
       },
       currentStockPrice: stockPrice,
       strikePrice,
@@ -369,7 +401,8 @@ export class PayoffCalculator {
     backIV: number,
     frontDTE: number,
     backDTE: number,
-    netDebit: number
+    netDebit: number,
+    signal: 'BUY' | 'SELL'
   ): PayoffCurve[] {
     const curves: PayoffCurve[] = [];
     
@@ -426,11 +459,12 @@ export class PayoffCalculator {
           backValue = backPricing.straddlePrice;
         }
 
-        // Calendar Spread P&L:
-        // We initially: SELL front (receive premium), BUY back (pay premium)
-        // Net debit = back - front (negative if we receive net credit)
-        // Current P&L = (back value we own) - (front value we owe) - (initial net debit)
-        const pnl = backValue - frontValue - netDebit;
+        // Calculate P&L based on signal type
+        // BUY signal: We own front, short back -> P&L = frontValue - backValue - netDebit
+        // SELL signal: We're short front, own back -> P&L = backValue - frontValue - netDebit
+        const pnl = signal === 'BUY' 
+          ? frontValue - backValue - netDebit  // Reverse calendar (long front, short back)
+          : backValue - frontValue - netDebit; // Regular calendar (short front, long back)
         const percentMove = ((stockPrice - currentStockPrice) / currentStockPrice) * 100;
 
         dataPoints.push({
@@ -481,27 +515,44 @@ export class PayoffCalculator {
     frontIV: number,
     backIV: number,
     frontDTE: number,
-    backDTE: number
+    backDTE: number,
+    signal: 'BUY' | 'SELL'
   ): number {
-    // For calendar spreads, profit occurs when stock stays near strike
-    // Use normal distribution to estimate probability
     const frontTimeToExp = frontDTE / 365;
     const expectedMove = stockPrice * frontIV * Math.sqrt(frontTimeToExp);
-    
-    // Profit zone is approximately ±1 standard deviation
-    const profitZone = expectedMove;
-    const upperBound = strikePrice + profitZone;
-    const lowerBound = strikePrice - profitZone;
-    
-    // Calculate probability of stock being within profit zone
     const volSqrtTime = frontIV * Math.sqrt(frontTimeToExp);
     
-    const d1Upper = (Math.log(stockPrice / upperBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
-    const d1Lower = (Math.log(stockPrice / lowerBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
-    
-    // Probability of being within bounds
-    const probability = Math.abs(d1Upper - d1Lower) / 2;
-    
-    return Math.min(Math.max(probability * 100, 10), 90); // Keep between 10-90%
+    if (signal === 'BUY') {
+      // For reverse calendar (BUY), profit occurs when stock moves AWAY from strike
+      // This is the inverse of regular calendar spread
+      // Profit zone is outside ±1 standard deviation
+      const profitZone = expectedMove * 0.7; // Slightly tighter than 1 std dev
+      const upperBound = strikePrice + profitZone;
+      const lowerBound = strikePrice - profitZone;
+      
+      // Calculate probability of stock moving outside the zone
+      const d1Upper = (Math.log(stockPrice / upperBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
+      const d1Lower = (Math.log(stockPrice / lowerBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
+      
+      // Probability of being outside bounds (moving significantly)
+      const probability = 1 - Math.abs(d1Upper - d1Lower) / 2;
+      
+      return Math.min(Math.max(probability * 100, 10), 90); // Keep between 10-90%
+    } else {
+      // For regular calendar (SELL), profit occurs when stock stays near strike
+      // Profit zone is approximately ±1 standard deviation
+      const profitZone = expectedMove;
+      const upperBound = strikePrice + profitZone;
+      const lowerBound = strikePrice - profitZone;
+      
+      // Calculate probability of stock being within profit zone
+      const d1Upper = (Math.log(stockPrice / upperBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
+      const d1Lower = (Math.log(stockPrice / lowerBound) + 0.5 * frontIV * frontIV * frontTimeToExp) / volSqrtTime;
+      
+      // Probability of being within bounds
+      const probability = Math.abs(d1Upper - d1Lower) / 2;
+      
+      return Math.min(Math.max(probability * 100, 10), 90); // Keep between 10-90%
+    }
   }
 }

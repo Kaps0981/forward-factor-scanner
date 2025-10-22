@@ -237,12 +237,17 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
         <div className="p-6 space-y-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
-              Calendar Spread Payoff Analysis
+              {opportunity.signal === 'BUY' ? 'Reverse Calendar Spread' : 'Calendar Spread'} Payoff Analysis
             </DialogTitle>
             <DialogDescription className="mt-2">
               {opportunity.ticker} • Forward Factor: {formatPercent(payoffData.forwardFactor)} • 
-              Front: {payoffData.frontDTE}d @ {payoffData.frontIV}% IV • 
-              Back: {payoffData.backDTE}d @ {payoffData.backIV}% IV
+              {opportunity.signal === 'BUY' ? (
+                <>Long Front {payoffData.frontDTE}d @ {payoffData.frontIV}% IV • 
+                   Short Back {payoffData.backDTE}d @ {payoffData.backIV}% IV</>
+              ) : (
+                <>Short Front {payoffData.frontDTE}d @ {payoffData.frontIV}% IV • 
+                   Long Back {payoffData.backDTE}d @ {payoffData.backIV}% IV</>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -276,7 +281,9 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     ? `$${payoffData.metrics.maxProfit}` 
                     : formatCurrency(Number(payoffData.metrics.maxProfit))}
                 </div>
-                <div className="text-xs text-slate-500">At Strike Price</div>
+                <div className="text-xs text-slate-500">
+                  {opportunity.signal === 'BUY' ? 'When Stock Moves Significantly' : 'At Strike Price'}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -302,7 +309,9 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                 <div className="text-3xl font-bold text-red-500 tabular-nums">
                   -{formatCurrency(Math.abs(payoffData.metrics.premium))}
                 </div>
-                <div className="text-xs text-slate-500">Net Debit Paid</div>
+                <div className="text-xs text-slate-500">
+                  {opportunity.signal === 'BUY' ? 'When Stock Stays at Strike' : 'Net Debit Paid'}
+                </div>
               </div>
             </div>
 
