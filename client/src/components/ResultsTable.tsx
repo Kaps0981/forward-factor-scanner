@@ -162,17 +162,12 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
   const handlePaperTrade = async (opportunity: Opportunity) => {
     try {
       // Create paper trade with default 1 contract
-      await apiRequest('/api/paper-trades', 'POST', {
-        ticker: opportunity.ticker,
-        signal: opportunity.signal,
+      await apiRequest('POST', '/api/paper-trades', {
+        opportunity: opportunity,
         quantity: 1,
-        entry_price: opportunity.forward_factor < 0 ? 1.50 : 2.00, // Estimated premium
-        stock_entry_price: 100, // Default stock price
-        front_expiry: opportunity.front_date,
-        back_expiry: opportunity.back_date,
-        front_entry_iv: opportunity.front_iv,
-        back_entry_iv: opportunity.back_iv,
-        forward_factor: opportunity.forward_factor
+        stop_loss_percent: 30,  // Default 30% stop loss
+        take_profit_percent: 50, // Default 50% take profit
+        use_actual_prices: false
       });
       
       toast({

@@ -18,6 +18,7 @@ import { TradingCalendar } from "./tradingCalendar";
 import { MarketCapFilter } from "./marketCapFilter";
 import { FinancialEventsService } from "./financialEvents";
 import { PayoffCalculator } from "./payoffCalculator";
+import { NewsService } from "./newsService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -527,28 +528,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 8. GET /api/paper-trades/:id/news - Get news events for a trade
+  // 8. GET /api/paper-trades/:id/news - Get news events and analysis for a trade
   app.get("/api/paper-trades/:id/news", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       
-      // Get the trade to get the ticker
+      // Get the trade details
       const trade = await storage.getPaperTrade(id);
       if (!trade) {
         return res.status(404).json({ error: "Paper trade not found" });
       }
       
-      // Get news events for this trade
-      const newsEvents = await storage.getTradeNewsEvents(id);
+      // Initialize news service
+      const newsService = new NewsService(POLYGON_API_KEY);
       
-      // Also get recent news for the ticker
-      const recentNews = await storage.getRecentNewsForTicker(trade.ticker);
+      // Analyze news impact for this specific trade
+      const newsAnalysis = await newsService.analyzeNewsImpact(
+        trade.ticker,
+        trade.signal,
+        trade.front_expiry,
+        trade.back_expiry
+      );
+      
+      // Get market-wide news that could affect position
+      const marketNews = await newsService.getMarketNews();
+      
+      // Store significant news events in database
+      if (newsAnalysis.overall_sentiment !== 'neutral') {
+        await storage.createTradeNewsEvent({
+          trade_id: id,
+          event_type: newsAnalysis.overall_sentiment === 'positive' ? 'favorable_news' : 'unfavorable_news',
+          event_date: new Date().toISOString().split('T')[0],
+          description: newsAnalysis.impact_assessment,
+          impact: newsAnalysis.overall_sentiment === 'positive' ? 'POSITIVE' : 'NEGATIVE',
+        });
+      }
       
       res.json({ 
-        trade_id: id,
-        ticker: trade.ticker,
-        trade_specific_news: newsEvents,
-        recent_ticker_news: recentNews
+        news_analysis: newsAnalysis,
+        market_news: marketNews,
+        impact_summary: {
+          whats_working: newsAnalysis.key_favorable,
+          whats_not_working: newsAnalysis.key_unfavorable,
+          overall_assessment: newsAnalysis.impact_assessment,
+          recommendation: newsAnalysis.overall_sentiment === 'negative' 
+            ? "Consider reducing position or tightening stops" 
+            : newsAnalysis.overall_sentiment === 'positive'
+            ? "News flow supports position - maintain or consider adding"
+            : "Continue monitoring - no immediate action needed"
+        }
       });
     } catch (error) {
       console.error("Error fetching trade news:", error);

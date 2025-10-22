@@ -29,9 +29,10 @@ export default function PaperTrading() {
   const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
   
   // Fetch open positions
-  const { data: openTrades = [], isLoading: tradesLoading, refetch: refetchTrades } = useQuery<PaperTrade[]>({
+  const { data: openTradesData, isLoading: tradesLoading, refetch: refetchTrades } = useQuery<{ trades: PaperTrade[] }>({
     queryKey: ['/api/paper-trades/open']
   });
+  const openTrades = openTradesData?.trades || [];
   
   // Fetch portfolio summary
   const { data: portfolio, isLoading: portfolioLoading, refetch: refetchPortfolio } = useQuery<PortfolioSummary>({
@@ -39,19 +40,29 @@ export default function PaperTrading() {
   });
   
   // Fetch all trades for history
-  const { data: allTrades = [] } = useQuery<PaperTrade[]>({
+  const { data: allTradesData } = useQuery<{ trades: PaperTrade[] }>({
     queryKey: ['/api/paper-trades']
   });
+  const allTrades = allTradesData?.trades || [];
   
   // Fetch news for selected trade
-  const { data: tradeNews = [] } = useQuery<any[]>({
+  const { data: newsData } = useQuery<{
+    news_analysis: any;
+    market_news: any[];
+    impact_summary: {
+      whats_working: string[];
+      whats_not_working: string[];
+      overall_assessment: string;
+      recommendation: string;
+    };
+  }>({
     queryKey: [`/api/paper-trades/${selectedTradeId}/news`],
     enabled: !!selectedTradeId
   });
   
   // Update all prices mutation
   const updatePricesMutation = useMutation({
-    mutationFn: () => apiRequest('/api/paper-trades/update-all-prices', 'POST'),
+    mutationFn: () => apiRequest('POST', '/api/paper-trades/update-all-prices'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/paper-trades'] });
       queryClient.invalidateQueries({ queryKey: ['/api/portfolio-summary'] });
@@ -65,7 +76,7 @@ export default function PaperTrading() {
   // Close trade mutation
   const closePositionMutation = useMutation({
     mutationFn: ({ id, exitPrice, exitReason }: { id: number, exitPrice: number, exitReason: string }) =>
-      apiRequest(`/api/paper-trades/${id}/close`, 'POST', { exitPrice, exitReason }),
+      apiRequest('POST', `/api/paper-trades/${id}/close`, { exitPrice, exitReason }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/paper-trades'] });
       queryClient.invalidateQueries({ queryKey: ['/api/portfolio-summary'] });
@@ -380,24 +391,164 @@ export default function PaperTrading() {
         </TabsContent>
       </Tabs>
       
-      {/* News Modal (simplified) */}
-      {selectedTradeId && tradeNews.length > 0 && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedTradeId(null)}>
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
-            <CardHeader>
-              <CardTitle>Trade News & Events</CardTitle>
-              <Button 
-                size="sm" 
-                variant="ghost" 
-                className="absolute right-4 top-4"
-                onClick={() => setSelectedTradeId(null)}
-              >
-                ✕
-              </Button>
+      {/* News Modal with Analysis */}
+      {selectedTradeId && newsData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedTradeId(null)}>
+          <Card className="w-full max-w-4xl max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <CardHeader className="sticky top-0 bg-card z-10 border-b">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-2xl">News Impact Analysis</CardTitle>
+                  <CardDescription>
+                    {newsData.news_analysis?.ticker} - {newsData.news_analysis?.articles?.length || 0} recent articles analyzed
+                  </CardDescription>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  className="h-8 w-8"
+                  onClick={() => setSelectedTradeId(null)}
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent>
-              {/* News content would go here */}
-              <p className="text-muted-foreground">No news events available.</p>
+            <CardContent className="space-y-6 pt-6">
+              {/* Overall Assessment */}
+              <div className={`p-4 rounded-lg border-2 ${
+                newsData.news_analysis?.overall_sentiment === 'positive' 
+                  ? 'bg-green-50 dark:bg-green-950/30 border-green-500' 
+                  : newsData.news_analysis?.overall_sentiment === 'negative'
+                  ? 'bg-red-50 dark:bg-red-950/30 border-red-500'
+                  : 'bg-gray-50 dark:bg-gray-950/30 border-gray-500'
+              }`}>
+                <h3 className="font-semibold text-lg mb-2">Overall Assessment</h3>
+                <p className="mb-3">{newsData.impact_summary.overall_assessment}</p>
+                <Badge variant={
+                  newsData.news_analysis?.overall_sentiment === 'positive' ? 'default' : 
+                  newsData.news_analysis?.overall_sentiment === 'negative' ? 'destructive' : 
+                  'secondary'
+                }>
+                  {newsData.impact_summary.recommendation}
+                </Badge>
+              </div>
+              
+              {/* What's Working vs Not Working */}
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* What's Working */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <CheckCircle className="h-5 w-5" />
+                    What's Working For You
+                  </h3>
+                  <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded-lg">
+                    {newsData.impact_summary.whats_working?.length > 0 ? (
+                      <ul className="space-y-1">
+                        {newsData.impact_summary.whats_working.map((item, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <span className="text-green-500 mt-1">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No favorable factors currently</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* What's Not Working */}
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <XCircle className="h-5 w-5" />
+                    What's Not In Your Favor
+                  </h3>
+                  <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded-lg">
+                    {newsData.impact_summary.whats_not_working?.length > 0 ? (
+                      <ul className="space-y-1">
+                        {newsData.impact_summary.whats_not_working.map((item, idx) => (
+                          <li key={idx} className="text-sm flex items-start gap-2">
+                            <span className="text-red-500 mt-1">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No unfavorable factors currently</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* News Sentiment Breakdown */}
+              <div>
+                <h3 className="font-semibold text-lg mb-3">News Sentiment Breakdown</h3>
+                <div className="flex gap-4 mb-4">
+                  <div className="flex-1 bg-green-100 dark:bg-green-900/30 p-3 rounded text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {newsData.news_analysis?.favorable_count || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Favorable</div>
+                  </div>
+                  <div className="flex-1 bg-gray-100 dark:bg-gray-900/30 p-3 rounded text-center">
+                    <div className="text-2xl font-bold text-gray-600">
+                      {newsData.news_analysis?.neutral_count || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Neutral</div>
+                  </div>
+                  <div className="flex-1 bg-red-100 dark:bg-red-900/30 p-3 rounded text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      {newsData.news_analysis?.unfavorable_count || 0}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Unfavorable</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Recent Articles */}
+              {newsData.news_analysis?.articles?.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Recent News Articles</h3>
+                  <div className="space-y-2">
+                    {newsData.news_analysis.articles.slice(0, 5).map((article: any, idx: number) => (
+                      <div key={idx} className="p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                        <a 
+                          href={article.article_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {article.title}
+                        </a>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(article.published_utc).toLocaleDateString()} • {article.author || article.publisher?.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Market News */}
+              {newsData.market_news?.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Market-Wide News</h3>
+                  <div className="space-y-2">
+                    {newsData.market_news.slice(0, 3).map((article: any, idx: number) => (
+                      <div key={idx} className="p-3 border rounded-lg">
+                        <a 
+                          href={article.article_url}
+                          target="_blank"
+                          rel="noopener noreferrer" 
+                          className="text-sm hover:underline"
+                        >
+                          {article.title}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
