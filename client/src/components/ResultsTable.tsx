@@ -229,7 +229,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         // Mobile Card View
         <div className="space-y-3">
           {sortedOpportunities.map((opp) => (
-            <MobileResultCard key={opp.ticker} opportunity={opp} />
+            <MobileResultCard key={`${opp.ticker}-${opp.front_date}-${opp.back_date}`} opportunity={opp} />
           ))}
         </div>
       ) : (
