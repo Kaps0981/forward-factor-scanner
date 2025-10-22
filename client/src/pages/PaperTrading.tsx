@@ -19,18 +19,31 @@ import {
   StopCircle,
   RefreshCw,
   Newspaper,
-  Edit
+  Edit,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { PaperTrade, PortfolioSummary } from "@shared/schema";
 import { Header } from "@/components/Header";
 import { EditPricesDialog } from "@/components/EditPricesDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function PaperTrading() {
   const { toast } = useToast();
   const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedEditTrade, setSelectedEditTrade] = useState<PaperTrade | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [tradeToDelete, setTradeToDelete] = useState<PaperTrade | null>(null);
   
   // Fetch open positions
   const { data: openTradesData, isLoading: tradesLoading, refetch: refetchTrades } = useQuery<{ trades: PaperTrade[] }>({
@@ -114,6 +127,30 @@ export default function PaperTrading() {
     }
   });
 
+  // Delete trade mutation
+  const deleteTradeMutation = useMutation({
+    mutationFn: (id: number) =>
+      apiRequest('DELETE', `/api/paper-trades/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/paper-trades'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/paper-trades/open'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolio-summary'] });
+      setDeleteDialogOpen(false);
+      setTradeToDelete(null);
+      toast({
+        title: "Trade Deleted",
+        description: "Paper trade has been removed successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete trade",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Handlers
   const handleEditPrices = (trade: PaperTrade) => {
     setSelectedEditTrade(trade);
@@ -122,6 +159,17 @@ export default function PaperTrading() {
 
   const handleConfirmEditPrices = (tradeId: number, data: any) => {
     updateTradePricesMutation.mutate({ id: tradeId, data });
+  };
+
+  const handleDeleteTrade = (trade: PaperTrade) => {
+    setTradeToDelete(trade);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (tradeToDelete) {
+      deleteTradeMutation.mutate(tradeToDelete.id);
+    }
   };
   
   // Get exit signal icon and color
@@ -346,6 +394,7 @@ export default function PaperTrading() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleEditPrices(trade)}
+                        data-testid={`button-edit-prices-${trade.id}`}
                       >
                         <Edit className="w-4 h-4 mr-1" />
                         Edit Prices
@@ -353,7 +402,18 @@ export default function PaperTrading() {
                       <Button 
                         size="sm"
                         variant="outline"
+                        className="hover:border-destructive hover:text-destructive"
+                        onClick={() => handleDeleteTrade(trade)}
+                        data-testid={`button-delete-trade-${trade.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
                         onClick={() => setSelectedTradeId(trade.id)}
+                        data-testid={`button-view-news-${trade.id}`}
                       >
                         <Newspaper className="w-4 h-4 mr-1" />
                         View News
@@ -369,6 +429,7 @@ export default function PaperTrading() {
                             exitReason: 'Manual close'
                           });
                         }}
+                        data-testid={`button-close-position-${trade.id}`}
                       >
                         <XCircle className="w-4 h-4 mr-1" />
                         Close Position
@@ -608,6 +669,28 @@ export default function PaperTrading() {
         trade={selectedEditTrade}
         onConfirm={handleConfirmEditPrices}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Paper Trade</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this paper trade for {tradeToDelete?.ticker}? 
+              This action cannot be undone and will permanently remove this trade from your records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Trade
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </>
   );

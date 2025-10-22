@@ -667,7 +667,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                             data-testid={`button-paper-trade-${index}`}
                           >
                             <DollarSign className="h-4 w-4 mr-1" />
-                            Trade
+                            Add to Paper Trading
                           </Button>
                         </div>
                       </TableCell>

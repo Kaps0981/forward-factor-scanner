@@ -241,13 +241,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function calculateCurrentPrices(opportunity: any, stockPrice?: number) {
     // This is a simplified calculation - in production, you'd use proper options pricing
     const randomPnl = (Math.random() - 0.5) * 20; // Random P&L for demo
-    const entryPrice = 1.5; // Simplified entry price
+    const entryPrice = opportunity.entry_price || 1.5; // Use actual entry price if available
     const currentPrice = entryPrice * (1 + randomPnl / 100);
+    const quantity = opportunity.quantity || 100; // Use actual quantity if available
+    const currentPnl = (currentPrice - entryPrice) * quantity;
+    
+    // Correct P&L percentage calculation: (current_pnl / (entry_price * quantity)) * 100
+    const currentPnlPercent = (currentPnl / (entryPrice * quantity)) * 100;
     
     return {
       current_price: currentPrice,
-      current_pnl: (currentPrice - entryPrice) * 100, // Assuming 100 quantity
-      current_pnl_percent: randomPnl,
+      current_pnl: currentPnl,
+      current_pnl_percent: currentPnlPercent,
       stock_current_price: stockPrice || 100,
       front_current_iv: opportunity.front_iv * (1 + (Math.random() - 0.5) * 0.1),
       back_current_iv: opportunity.back_iv * (1 + (Math.random() - 0.5) * 0.1),
@@ -639,7 +644,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 8. GET /api/paper-trades/:id/news - Get news events and analysis for a trade
+  // 8. DELETE /api/paper-trades/:id - Delete a paper trade
+  app.delete("/api/paper-trades/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // Check if trade exists
+      const trade = await storage.getPaperTrade(id);
+      if (!trade) {
+        return res.status(404).json({ error: "Paper trade not found" });
+      }
+      
+      // Delete the trade
+      await storage.deletePaperTrade(id);
+      
+      // Recalculate portfolio metrics after deletion
+      await storage.calculatePortfolioMetrics();
+      
+      res.json({ success: true, message: "Paper trade deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting paper trade:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to delete paper trade",
+      });
+    }
+  });
+
+  // 9. GET /api/paper-trades/:id/news - Get news events and analysis for a trade
   app.get("/api/paper-trades/:id/news", async (req, res) => {
     try {
       const id = parseInt(req.params.id);

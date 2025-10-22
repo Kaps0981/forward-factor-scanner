@@ -203,6 +203,8 @@ export const paperTrades = pgTable("paper_trades", {
   
   // Entry prices
   entry_price: doublePrecision("entry_price").notNull(),
+  front_entry_price: doublePrecision("front_entry_price").notNull().default(0), // Price paid for front option
+  back_entry_price: doublePrecision("back_entry_price").notNull().default(0), // Price paid for back option
   front_entry_iv: doublePrecision("front_entry_iv").notNull(),
   back_entry_iv: doublePrecision("back_entry_iv").notNull(),
   stock_entry_price: doublePrecision("stock_entry_price").notNull(),

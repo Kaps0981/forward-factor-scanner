@@ -46,6 +46,7 @@ export interface IStorage {
   updatePaperTrade(id: number, trade: Partial<InsertPaperTrade>): Promise<PaperTrade | undefined>;
   closePaperTrade(id: number, exitPrice: number, exitReason: string): Promise<PaperTrade | undefined>;
   updatePaperTradeExitSignal(id: number, signal: string, reason: string): Promise<PaperTrade | undefined>;
+  deletePaperTrade(id: number): Promise<void>;
   
   // Trade News Events
   createTradeNewsEvent(event: InsertTradeNewsEvent): Promise<TradeNewsEvent>;
@@ -153,6 +154,7 @@ export class DatabaseStorage implements IStorage {
     if (!trade) return undefined;
     
     const realizedPnl = (exitPrice - trade.entry_price) * trade.quantity;
+    // Correct P&L percentage calculation: (pnl / (entry_price * quantity)) * 100
     const realizedPnlPercent = (realizedPnl / (trade.entry_price * trade.quantity)) * 100;
     
     const [result] = await db
@@ -180,6 +182,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(paperTrades.id, id))
       .returning();
     return result;
+  }
+  
+  async deletePaperTrade(id: number): Promise<void> {
+    await db.delete(paperTrades).where(eq(paperTrades.id, id));
   }
   
   // Trade News Event methods

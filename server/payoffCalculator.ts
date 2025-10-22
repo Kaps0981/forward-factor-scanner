@@ -452,7 +452,9 @@ export class PayoffCalculator {
           });
           frontValue = frontPricing.straddlePrice;
         } else {
-          // At front expiration, front straddle has only intrinsic value
+          // At front expiration, for calendar spreads (ATM options)
+          // Front option expires worthless at strike, has intrinsic value away from strike
+          // We use straddle intrinsic value which is the sum of call and put intrinsic values
           frontValue = Math.abs(stockPrice - strikePrice);
         }
 
