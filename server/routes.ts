@@ -555,7 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Analyze news impact for this specific trade
       const newsAnalysis = await newsService.analyzeNewsImpact(
         trade.ticker,
-        trade.signal,
+        trade.signal as 'BUY' | 'SELL',
         trade.front_expiry,
         trade.back_expiry
       );
@@ -566,11 +566,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Store significant news events in database
       if (newsAnalysis.overall_sentiment !== 'neutral') {
         await storage.createTradeNewsEvent({
+          ticker: trade.ticker,
           trade_id: id,
           event_type: newsAnalysis.overall_sentiment === 'positive' ? 'favorable_news' : 'unfavorable_news',
-          event_date: new Date().toISOString().split('T')[0],
-          description: newsAnalysis.impact_assessment,
-          impact: newsAnalysis.overall_sentiment === 'positive' ? 'POSITIVE' : 'NEGATIVE',
+          headline: newsAnalysis.impact_assessment.substring(0, 200),
+          impact_score: newsAnalysis.overall_sentiment === 'positive' ? 8 : 3,
         });
       }
       

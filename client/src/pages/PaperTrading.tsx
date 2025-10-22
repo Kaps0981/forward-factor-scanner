@@ -18,15 +18,19 @@ import {
   Target,
   StopCircle,
   RefreshCw,
-  Newspaper
+  Newspaper,
+  Edit
 } from "lucide-react";
 import { format } from "date-fns";
 import type { PaperTrade, PortfolioSummary } from "@shared/schema";
 import { Header } from "@/components/Header";
+import { EditPricesDialog } from "@/components/EditPricesDialog";
 
 export default function PaperTrading() {
   const { toast } = useToast();
   const [selectedTradeId, setSelectedTradeId] = useState<number | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedEditTrade, setSelectedEditTrade] = useState<PaperTrade | null>(null);
   
   // Fetch open positions
   const { data: openTradesData, isLoading: tradesLoading, refetch: refetchTrades } = useQuery<{ trades: PaperTrade[] }>({
@@ -86,6 +90,39 @@ export default function PaperTrading() {
       });
     }
   });
+
+  // Update trade prices mutation
+  const updateTradePricesMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: any }) =>
+      apiRequest('PATCH', `/api/paper-trades/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/paper-trades'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/portfolio-summary'] });
+      setEditDialogOpen(false);
+      setSelectedEditTrade(null);
+      toast({
+        title: "Prices Updated",
+        description: "Trade prices have been adjusted successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update prices",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handlers
+  const handleEditPrices = (trade: PaperTrade) => {
+    setSelectedEditTrade(trade);
+    setEditDialogOpen(true);
+  };
+
+  const handleConfirmEditPrices = (tradeId: number, data: any) => {
+    updateTradePricesMutation.mutate({ id: tradeId, data });
+  };
   
   // Get exit signal icon and color
   const getExitSignalDisplay = (signal?: string | null) => {
@@ -308,8 +345,17 @@ export default function PaperTrading() {
                       <Button 
                         size="sm"
                         variant="outline"
+                        onClick={() => handleEditPrices(trade)}
+                      >
+                        <Edit className="w-4 h-4 mr-1" />
+                        Edit Prices
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
                         onClick={() => setSelectedTradeId(trade.id)}
                       >
+                        <Newspaper className="w-4 h-4 mr-1" />
                         View News
                       </Button>
                       <Button 
@@ -324,6 +370,7 @@ export default function PaperTrading() {
                           });
                         }}
                       >
+                        <XCircle className="w-4 h-4 mr-1" />
                         Close Position
                       </Button>
                     </div>
@@ -553,6 +600,14 @@ export default function PaperTrading() {
           </Card>
         </div>
       )}
+      
+      {/* Edit Prices Dialog */}
+      <EditPricesDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        trade={selectedEditTrade}
+        onConfirm={handleConfirmEditPrices}
+      />
     </div>
     </>
   );
