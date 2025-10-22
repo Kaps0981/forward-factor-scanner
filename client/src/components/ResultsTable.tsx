@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Info,
   Calendar,
-  Building
+  Building,
+  LineChart
 } from "lucide-react";
 import {
   Tooltip,
@@ -38,6 +39,9 @@ import {
 } from "@/components/ui/collapsible";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileResultCard } from "@/components/MobileResultCard";
+import { PayoffDiagram } from "@/components/PayoffDiagram";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface ResultsTableProps {
   opportunities: Opportunity[];
@@ -52,7 +56,12 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showWarning, setShowWarning] = useState(true);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [payoffDialogOpen, setPayoffDialogOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [payoffData, setPayoffData] = useState<any>(null);
+  const [loadingPayoff, setLoadingPayoff] = useState(false);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -123,6 +132,30 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
       }
       return newSet;
     });
+  };
+
+  const handleViewPayoff = async (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setLoadingPayoff(true);
+    setPayoffDialogOpen(true);
+    
+    try {
+      const response = await apiRequest("POST", "/api/payoff-analysis", {
+        opportunity: opportunity
+      });
+      
+      const data = await response.json();
+      setPayoffData(data);
+    } catch (error) {
+      toast({
+        title: "Failed to load payoff analysis",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+      setPayoffDialogOpen(false);
+    } finally {
+      setLoadingPayoff(false);
+    }
   };
 
   return (
@@ -276,6 +309,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                 </TableHead>
                 <TableHead className="text-right font-semibold bg-background">Forward Vol</TableHead>
                 <TableHead className="text-center font-semibold bg-background">Alerts</TableHead>
+                <TableHead className="text-center font-semibold bg-background">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -567,6 +601,18 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                           </TooltipProvider>
                         )}
                       </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewPayoff(opp)}
+                          disabled={loadingPayoff}
+                          data-testid={`button-view-payoff-${index}`}
+                        >
+                          <LineChart className="h-4 w-4 mr-1" />
+                          Payoff
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     {hasWarnings && isExpanded && (
                       <TableRow 
@@ -575,7 +621,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       >
                         <TableCell className="sticky left-0 z-[40] bg-muted/30 border-r border-card-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
                         <TableCell className="sticky left-8 z-[40] bg-muted/30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></TableCell>
-                        <TableCell colSpan={18} className="p-4">
+                        <TableCell colSpan={19} className="p-4">
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <Info className="h-4 w-4 text-blue-500" />
@@ -617,6 +663,18 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
         </div>
       </div>
       )}
+      
+      {/* Payoff Diagram Modal */}
+      <PayoffDiagram 
+        open={payoffDialogOpen}
+        onClose={() => {
+          setPayoffDialogOpen(false);
+          setSelectedOpportunity(null);
+          setPayoffData(null);
+        }}
+        opportunity={selectedOpportunity}
+        payoffData={payoffData}
+      />
     </div>
   );
 }

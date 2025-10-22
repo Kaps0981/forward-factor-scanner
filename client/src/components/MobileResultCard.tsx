@@ -1,13 +1,17 @@
 import { type Opportunity } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, AlertTriangle, Calendar, Building } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronRight, AlertTriangle, Calendar, Building, LineChart } from "lucide-react";
 import { 
   Collapsible, 
   CollapsibleContent, 
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
 import { useState } from "react";
+import { PayoffDiagram } from "@/components/PayoffDiagram";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface MobileResultCardProps {
   opportunity: Opportunity;
@@ -15,8 +19,35 @@ interface MobileResultCardProps {
 
 export function MobileResultCard({ opportunity }: MobileResultCardProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [payoffDialogOpen, setPayoffDialogOpen] = useState(false);
+  const [payoffData, setPayoffData] = useState<any>(null);
+  const [loadingPayoff, setLoadingPayoff] = useState(false);
+  const { toast } = useToast();
   
   const minLiquidity = Math.min(opportunity.straddle_oi || 0, opportunity.back_straddle_oi || 0);
+  
+  const handleViewPayoff = async () => {
+    setLoadingPayoff(true);
+    setPayoffDialogOpen(true);
+    
+    try {
+      const response = await apiRequest("POST", "/api/payoff-analysis", {
+        opportunity: opportunity
+      });
+      
+      const data = await response.json();
+      setPayoffData(data);
+    } catch (error) {
+      toast({
+        title: "Failed to load payoff analysis",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+      setPayoffDialogOpen(false);
+    } finally {
+      setLoadingPayoff(false);
+    }
+  };
   
   const getLiquidityColor = (oi: number | undefined) => {
     if (!oi) return 'text-muted-foreground';
@@ -269,9 +300,35 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                 </ul>
               </div>
             )}
+
+            {/* View Payoff Button */}
+            <div className="mt-4 pt-3 border-t border-card-border">
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full"
+                onClick={handleViewPayoff}
+                disabled={loadingPayoff}
+                data-testid={`button-view-payoff-mobile-${opportunity.ticker}`}
+              >
+                <LineChart className="h-4 w-4 mr-2" />
+                View Payoff Diagram
+              </Button>
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
+      
+      {/* Payoff Diagram Modal */}
+      <PayoffDiagram 
+        open={payoffDialogOpen}
+        onClose={() => {
+          setPayoffDialogOpen(false);
+          setPayoffData(null);
+        }}
+        opportunity={opportunity}
+        payoffData={payoffData}
+      />
     </Card>
   );
 }

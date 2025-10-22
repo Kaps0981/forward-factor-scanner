@@ -10,6 +10,7 @@ import { generateHTMLReport, generateMarkdownReport } from "./reportGenerator";
 import { TradingCalendar } from "./tradingCalendar";
 import { MarketCapFilter } from "./marketCapFilter";
 import { FinancialEventsService } from "./financialEvents";
+import { PayoffCalculator } from "./payoffCalculator";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
@@ -170,6 +171,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/market-status", (req, res) => {
     const status = TradingCalendar.getMarketStatus();
     res.json(status);
+  });
+
+  // Payoff calculation endpoint
+  app.post("/api/payoff-analysis", (req, res) => {
+    try {
+      const opportunity = req.body.opportunity;
+      const currentStockPrice = req.body.currentStockPrice;
+      
+      if (!opportunity) {
+        return res.status(400).json({
+          error: "Opportunity data is required",
+        });
+      }
+
+      const calculator = new PayoffCalculator();
+      const payoffAnalysis = calculator.calculatePayoffAnalysis(opportunity, currentStockPrice);
+      
+      res.json(payoffAnalysis);
+    } catch (error) {
+      console.error("Error calculating payoff analysis:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Failed to calculate payoff analysis",
+      });
+    }
   });
 
   // Generate report for a specific scan
