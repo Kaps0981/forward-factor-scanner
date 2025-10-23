@@ -27,6 +27,9 @@ export const opportunitySchema = z.object({
   back_atm_put_oi: z.number().optional(),
   back_straddle_oi: z.number().optional(),
   back_liquidity_score: z.number().min(0).max(10).optional(),
+  // Volume fields for liquidity assessment
+  front_volume: z.number().optional(),
+  back_volume: z.number().optional(),
   // Position sizing recommendation
   position_size_recommendation: z.number().optional(),
   // Execution warnings
@@ -133,6 +136,9 @@ export const opportunities = pgTable("opportunities", {
   back_atm_put_oi: integer("back_atm_put_oi"),
   back_straddle_oi: integer("back_straddle_oi"),
   back_liquidity_score: integer("back_liquidity_score"),
+  // Volume fields for liquidity assessment
+  front_volume: integer("front_volume"),
+  back_volume: integer("back_volume"),
   // Position sizing recommendation
   position_size_recommendation: varchar("position_size_recommendation", { length: 50 }),
   // Execution warnings

@@ -12,6 +12,7 @@ interface ExpirationGroup {
   straddleOI: number;
   oiPutCallRatio: number;
   liquidityScore: number;
+  totalVolume: number;
 }
 
 export const DEFAULT_TICKERS = [
@@ -97,6 +98,21 @@ export class ForwardFactorScanner {
     return Math.round(avgOI);
   }
 
+  private calculateTotalVolume(options: PolygonOption[], stockPrice: number): number {
+    // Calculate total volume for ATM options (within 10% of stock price)
+    const atmOptions = options.filter(opt => 
+      this.isATM(opt.strike_price, stockPrice) && opt.day_volume !== undefined
+    );
+
+    if (atmOptions.length === 0) {
+      return 0;
+    }
+
+    // Sum up the volume across all ATM options
+    const totalVolume = atmOptions.reduce((sum, opt) => sum + (opt.day_volume || 0), 0);
+    return Math.round(totalVolume);
+  }
+
   private calculateStraddleLiquidity(options: PolygonOption[], stockPrice: number): {
     atmCallOI: number;
     atmPutOI: number;
@@ -167,6 +183,7 @@ export class ForwardFactorScanner {
       const atmIV = this.calculateATM_IV(opts, stockPrice);
       const avgOpenInterest = this.calculateAvgOpenInterest(opts, stockPrice);
       const straddleLiquidity = this.calculateStraddleLiquidity(opts, stockPrice);
+      const totalVolume = this.calculateTotalVolume(opts, stockPrice);
       
       if (atmIV > 0 && opts.length >= 3) {
         groups.push({ 
@@ -179,7 +196,8 @@ export class ForwardFactorScanner {
           atmPutOI: straddleLiquidity.atmPutOI,
           straddleOI: straddleLiquidity.straddleOI,
           oiPutCallRatio: straddleLiquidity.oiPutCallRatio,
-          liquidityScore: straddleLiquidity.liquidityScore
+          liquidityScore: straddleLiquidity.liquidityScore,
+          totalVolume
         });
       }
     });
@@ -301,6 +319,11 @@ export class ForwardFactorScanner {
           const avgIVR = Math.round((frontIVR + backIVR) / 2);
           const ivrContext = this.getIVRContext(avgIVR);
           
+          // Log volume calculation for debugging
+          if (front.totalVolume > 0 || back.totalVolume > 0) {
+            console.log(`${ticker}: Volumes calculated - Front: ${front.totalVolume}, Back: ${back.totalVolume}`);
+          }
+          
           opportunities.push({
             ticker,
             forward_factor: Math.round(forwardFactor * 100) / 100,
@@ -325,6 +348,9 @@ export class ForwardFactorScanner {
             back_atm_put_oi: back.atmPutOI,
             back_straddle_oi: back.straddleOI,
             back_liquidity_score: back.liquidityScore,
+            // Volume fields for liquidity assessment
+            front_volume: front.totalVolume,
+            back_volume: back.totalVolume,
             // IVR fields
             front_ivr: frontIVR,
             back_ivr: backIVR,

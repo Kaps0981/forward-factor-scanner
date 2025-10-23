@@ -81,6 +81,13 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
     return `${riskReward.toFixed(1)}:1`;
   };
 
+  const formatVolume = (volume: number | undefined): string => {
+    if (volume === undefined || volume === null || volume === 0) return '—';
+    if (volume >= 10000) return `${(volume / 1000).toFixed(0)}K`;
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+    return volume.toString();
+  };
+
   const handlePaperTrade = () => {
     setPaperTradeDialogOpen(true);
   };
@@ -257,6 +264,12 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                       {opportunity.straddle_oi || '—'}
                     </span>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground">Vol: </span>
+                    <span className={`font-mono ${getLiquidityColor(opportunity.front_volume)}`}>
+                      {formatVolume(opportunity.front_volume)}
+                    </span>
+                  </div>
                 </div>
               </div>
               
@@ -284,6 +297,12 @@ export function MobileResultCard({ opportunity }: MobileResultCardProps) {
                     <span className="text-muted-foreground">OI: </span>
                     <span className={`font-mono ${getLiquidityColor(opportunity.back_straddle_oi)}`}>
                       {opportunity.back_straddle_oi || '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Vol: </span>
+                    <span className={`font-mono ${getLiquidityColor(opportunity.back_volume)}`}>
+                      {formatVolume(opportunity.back_volume)}
                     </span>
                   </div>
                 </div>

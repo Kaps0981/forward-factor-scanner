@@ -126,6 +126,13 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
     return `${riskReward.toFixed(1)}:1`;
   };
 
+  const formatVolume = (volume: number | undefined): string => {
+    if (volume === undefined || volume === null || volume === 0) return '—';
+    if (volume >= 10000) return `${(volume / 1000).toFixed(0)}K`;
+    if (volume >= 1000) return `${(volume / 1000).toFixed(1)}K`;
+    return volume.toString();
+  };
+
   const toggleRowExpansion = (rowId: string) => {
     setExpandedRows(prev => {
       const newSet = new Set(prev);
@@ -324,6 +331,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   </TooltipProvider>
                 </TableHead>
                 <TableHead className="text-right font-semibold bg-card">Front OI</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Front Vol</TableHead>
                 <TableHead className="font-semibold bg-card">Back Contract</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold bg-card"
@@ -347,6 +355,7 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   </TooltipProvider>
                 </TableHead>
                 <TableHead className="text-right font-semibold bg-card">Back Month OI</TableHead>
+                <TableHead className="text-right font-semibold bg-card">Back Vol</TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('min_liquidity')}
@@ -546,6 +555,11 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                       <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-oi-${index}`}>
                         {opp.straddle_oi || '—'}
                       </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-front-volume-${index}`}>
+                        <span className={getLiquidityColor(opp.front_volume)}>
+                          {formatVolume(opp.front_volume)}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-sm" data-testid={`text-back-date-${index}`}>
                         {new Date(opp.back_date).toLocaleDateString('en-US', { 
                           month: 'short', 
@@ -607,6 +621,11 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                             </Tooltip>
                           </TooltipProvider>
                         )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums" data-testid={`text-back-volume-${index}`}>
+                        <span className={getLiquidityColor(opp.back_volume)}>
+                          {formatVolume(opp.back_volume)}
+                        </span>
                       </TableCell>
                       <TableCell 
                         className={`text-right font-mono tabular-nums font-semibold ${getLiquidityColor(minLiquidity)}`}

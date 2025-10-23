@@ -1137,6 +1137,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save opportunities to database
       if (limitedOpportunities.length > 0) {
+        // Log to verify volumes are present
+        console.log(`Saving ${limitedOpportunities.length} opportunities with volumes:`, 
+          limitedOpportunities.slice(0, 3).map(o => ({
+            ticker: o.ticker,
+            front_volume: o.front_volume,
+            back_volume: o.back_volume
+          }))
+        );
+        
         const opportunityRecords = limitedOpportunities.map(opp => ({
           scan_id: scan.id,
           ticker: opp.ticker,
@@ -1162,6 +1171,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           back_atm_put_oi: opp.back_atm_put_oi,
           back_straddle_oi: opp.back_straddle_oi,
           back_liquidity_score: opp.back_liquidity_score,
+          // Volume fields for liquidity assessment
+          front_volume: opp.front_volume,
+          back_volume: opp.back_volume,
           // Position sizing and warnings
           position_size_recommendation: String(opp.position_size_recommendation),
           execution_warnings: opp.execution_warnings,
