@@ -8,6 +8,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
+// Helper function to render tickers list
+function renderTickersList(tickersList: unknown, limit: number = 5): string {
+  if (!tickersList || !Array.isArray(tickersList)) {
+    return 'Custom ticker list';
+  }
+  const tickers = tickersList as string[];
+  if (tickers.length === 0) {
+    return 'Custom ticker list';
+  }
+  const displayedTickers = tickers.slice(0, limit).join(', ');
+  const remaining = tickers.length > limit ? ` +${tickers.length - limit} more` : '';
+  return displayedTickers + remaining;
+}
+
+// Helper function to get ticker list title
+function getTickersTitle(tickersList: unknown): string {
+  if (!tickersList || !Array.isArray(tickersList)) {
+    return 'Custom ticker list';
+  }
+  const tickers = tickersList as string[];
+  return tickers.join(', ');
+}
+
 export default function ScanDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -121,6 +144,11 @@ export default function ScanDetail() {
                     <p className="text-xs text-muted-foreground mt-1">
                       FF range: {data.scan.min_ff}% to {data.scan.max_ff}%
                     </p>
+                    {Array.isArray(data.scan.tickers_list) && data.scan.tickers_list.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2" title={getTickersTitle(data.scan.tickers_list)}>
+                        {renderTickersList(data.scan.tickers_list, 5)}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 

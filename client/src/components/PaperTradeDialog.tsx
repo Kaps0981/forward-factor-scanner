@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { InfoIcon, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import type { Opportunity } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface PaperTradeDialogProps {
   open: boolean;
@@ -25,6 +27,15 @@ interface PaperTradeDialogProps {
   }) => void;
 }
 
+interface PayoffMetrics {
+  premium: number;
+  maxLoss: number;
+  maxProfit: string | number;
+  upperBreakeven: number;
+  lowerBreakeven: number;
+  profitProbability: number;
+}
+
 export function PaperTradeDialog({ 
   open, 
   onOpenChange, 
@@ -39,6 +50,49 @@ export function PaperTradeDialog({
   const [actualStockPrice, setActualStockPrice] = useState<string>("");
   const [actualFrontStrike, setActualFrontStrike] = useState<string>("");
   const [actualBackStrike, setActualBackStrike] = useState<string>("");
+  
+  const [payoffMetrics, setPayoffMetrics] = useState<PayoffMetrics | null>(null);
+  const [isLoadingPayoff, setIsLoadingPayoff] = useState(false);
+
+  // Fetch payoff analysis when dialog opens or opportunity changes
+  useEffect(() => {
+    if (open && opportunity) {
+      fetchPayoffAnalysis();
+    }
+  }, [open, opportunity]);
+
+  // Fetch payoff analysis when actual stock price changes
+  useEffect(() => {
+    if (open && opportunity && actualStockPrice && useActualPrices) {
+      const stockPrice = parseFloat(actualStockPrice);
+      if (!isNaN(stockPrice) && stockPrice > 0) {
+        fetchPayoffAnalysis(stockPrice);
+      }
+    }
+  }, [actualStockPrice, useActualPrices]);
+
+  const fetchPayoffAnalysis = async (stockPrice?: number) => {
+    if (!opportunity) return;
+    
+    setIsLoadingPayoff(true);
+    try {
+      const response = await apiRequest("POST", "/api/payoff-analysis", {
+        opportunity,
+        currentStockPrice: stockPrice
+      });
+      const data = await response.json();
+      
+      if (data && data.metrics) {
+        setPayoffMetrics(data.metrics);
+      }
+    } catch (error) {
+      console.error("Failed to fetch payoff analysis:", error);
+      // If failed to fetch, use fallback estimates
+      setPayoffMetrics(null);
+    } finally {
+      setIsLoadingPayoff(false);
+    }
+  };
 
   if (!opportunity) return null;
 
@@ -58,9 +112,46 @@ export function PaperTradeDialog({
     onConfirm(data);
   };
 
-  const estimatedCost = quantity * 1.5; // Simplified estimate
-  const maxRisk = estimatedCost;
-  const maxProfit = estimatedCost * (takeProfitPercent / 100);
+  // Calculate values based on payoff metrics or use fallbacks
+  const calculateCosts = () => {
+    if (useActualPrices && actualEntryPrice) {
+      const entryPrice = parseFloat(actualEntryPrice);
+      if (!isNaN(entryPrice)) {
+        const totalCost = entryPrice * quantity * 100; // Account for contract multiplier
+        const maxRisk = totalCost;
+        const maxProfit = totalCost * (takeProfitPercent / 100);
+        return { estimatedCost: totalCost, maxRisk, maxProfit };
+      }
+    }
+
+    if (payoffMetrics) {
+      const entryPrice = payoffMetrics.premium;
+      const totalCost = entryPrice * quantity * 100; // Account for contract multiplier
+      const maxRisk = payoffMetrics.maxLoss * quantity * 100;
+      const maxProfit = payoffMetrics.maxProfit === 'Unlimited' 
+        ? 'Unlimited'
+        : typeof payoffMetrics.maxProfit === 'number'
+        ? payoffMetrics.maxProfit * quantity * 100
+        : parseFloat(payoffMetrics.maxProfit) * quantity * 100;
+      
+      return { 
+        estimatedCost: totalCost, 
+        maxRisk, 
+        maxProfit,
+        entryPrice // Include the per-contract entry price
+      };
+    }
+
+    // Fallback to simple estimate if no payoff data
+    const estimatedCost = quantity * 150; // $1.50 * 100 shares per contract
+    return { 
+      estimatedCost, 
+      maxRisk: estimatedCost, 
+      maxProfit: estimatedCost * (takeProfitPercent / 100) 
+    };
+  };
+
+  const costs = calculateCosts();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,7 +201,7 @@ export function PaperTradeDialog({
 
           <Separator />
 
-          {/* Position Size */}
+          {/* Position Size & Cost Calculation */}
           <div className="space-y-4">
             <h3 className="font-semibold">Position Size</h3>
             <div className="grid grid-cols-2 gap-4">
@@ -127,10 +218,21 @@ export function PaperTradeDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Estimated Cost</Label>
-                <div className="h-9 px-3 py-2 bg-muted rounded-md flex items-center font-mono">
-                  ${estimatedCost.toFixed(2)}
-                </div>
+                <Label>Net Debit/Credit</Label>
+                {isLoadingPayoff ? (
+                  <Skeleton className="h-9 w-full" />
+                ) : (
+                  <>
+                    <div className="h-9 px-3 py-2 bg-muted rounded-md flex items-center font-mono">
+                      ${costs.estimatedCost.toFixed(2)}
+                    </div>
+                    {costs.entryPrice && (
+                      <p className="text-xs text-muted-foreground">
+                        ${costs.entryPrice.toFixed(2)} per contract × {quantity} contracts × 100 shares
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -152,9 +254,20 @@ export function PaperTradeDialog({
                   onChange={(e) => setStopLossPercent(parseInt(e.target.value) || 30)}
                   data-testid="input-stop-loss"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Max Loss: ${(maxRisk * (stopLossPercent / 100)).toFixed(2)}
-                </p>
+                <div className="space-y-1">
+                  {isLoadingPayoff ? (
+                    <Skeleton className="h-4 w-24" />
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Stop Loss Target: ${(costs.maxRisk * (stopLossPercent / 100)).toFixed(2)}
+                      </p>
+                      <p className="text-xs text-destructive font-semibold">
+                        Max Loss: ${costs.maxRisk.toFixed(2)}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="take-profit">Take Profit (%)</Label>
@@ -167,11 +280,43 @@ export function PaperTradeDialog({
                   onChange={(e) => setTakeProfitPercent(parseInt(e.target.value) || 50)}
                   data-testid="input-take-profit"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Target Profit: ${maxProfit.toFixed(2)}
-                </p>
+                <div className="space-y-1">
+                  {isLoadingPayoff ? (
+                    <Skeleton className="h-4 w-24" />
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Take Profit Target: ${
+                          costs.maxProfit === 'Unlimited' 
+                            ? 'Unlimited' 
+                            : (costs.estimatedCost * (takeProfitPercent / 100)).toFixed(2)
+                        }
+                      </p>
+                      <p className="text-xs text-green-600 font-semibold">
+                        Max Profit: {
+                          costs.maxProfit === 'Unlimited' 
+                            ? 'Unlimited' 
+                            : `$${typeof costs.maxProfit === 'number' ? costs.maxProfit.toFixed(2) : costs.maxProfit}`
+                        }
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+            
+            {payoffMetrics && payoffMetrics.profitProbability && (
+              <div className="bg-muted/30 p-3 rounded-lg">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Breakeven Points:</span>
+                  <span className="ml-2">${payoffMetrics.lowerBreakeven.toFixed(2)} - ${payoffMetrics.upperBreakeven.toFixed(2)}</span>
+                </p>
+                <p className="text-sm mt-1">
+                  <span className="text-muted-foreground">Profit Probability:</span>
+                  <span className="ml-2 font-semibold">{(payoffMetrics.profitProbability * 100).toFixed(1)}%</span>
+                </p>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -202,12 +347,12 @@ export function PaperTradeDialog({
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="actual-entry">Net Debit/Credit</Label>
+                    <Label htmlFor="actual-entry">Net Debit/Credit Per Contract</Label>
                     <Input
                       id="actual-entry"
                       type="number"
                       step="0.01"
-                      placeholder="e.g. 1.45"
+                      placeholder={payoffMetrics ? payoffMetrics.premium.toFixed(2) : "e.g. 1.45"}
                       value={actualEntryPrice}
                       onChange={(e) => setActualEntryPrice(e.target.value)}
                       data-testid="input-actual-entry"
@@ -266,9 +411,11 @@ export function PaperTradeDialog({
           <Button 
             type="button"
             onClick={handleConfirm} 
+            disabled={isLoadingPayoff}
             data-testid="button-create-trade"
             className="pointer-events-auto"
           >
+            {isLoadingPayoff && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Paper Trade
           </Button>
         </DialogFooter>

@@ -48,6 +48,8 @@ export class PayoffCalculator {
 
   /**
    * Calculate complete payoff analysis for a Forward Factor opportunity
+   * IMPORTANT: All returned values are in DOLLARS PER SHARE, not per contract
+   * The caller must multiply by 100 * quantity to get total position values
    */
   calculatePayoffAnalysis(opportunity: Opportunity, currentStockPrice?: number): PayoffAnalysis {
     // Estimate current stock price if not provided
@@ -59,6 +61,7 @@ export class PayoffCalculator {
     const backIV = opportunity.back_iv / 100;
     
     // Calculate straddle metrics for the position
+    // NOTE: These metrics are in DOLLARS PER SHARE from Black-Scholes model
     const metrics = calculateStraddleMetrics(
       stockPrice,
       strikePrice,
@@ -76,19 +79,27 @@ export class PayoffCalculator {
       metrics.premium
     );
 
+    // All metric values are PER SHARE - multiply by 100 for per-contract values
+    console.log("PayoffCalculator - Straddle Analysis (PER SHARE values):");
+    console.log("  premium:", metrics.premium, "$/share");
+    console.log("  maxLoss:", metrics.maxLoss, "$/share");
+    console.log("  maxProfit:", metrics.maxProfit, "$/share (or 'Unlimited')");
+    console.log("  To convert to per-contract: multiply by 100");
+    console.log("  To convert to total position: multiply by 100 * quantity");
+
     return {
       curves,
       metrics: {
-        premium: metrics.premium,
-        upperBreakeven: metrics.upperBreakeven,
-        lowerBreakeven: metrics.lowerBreakeven,
-        maxLoss: metrics.maxLoss,
-        maxProfit: metrics.maxProfit,
-        profitProbability: metrics.profitProbability,
-        currentDelta: metrics.delta,
-        currentTheta: metrics.theta,
-        currentGamma: metrics.gamma,
-        currentVega: metrics.vega
+        premium: metrics.premium,        // $/share
+        upperBreakeven: metrics.upperBreakeven,  // stock price
+        lowerBreakeven: metrics.lowerBreakeven,  // stock price
+        maxLoss: metrics.maxLoss,       // $/share - multiply by 100 * quantity for total
+        maxProfit: metrics.maxProfit,   // $/share or 'Unlimited'
+        profitProbability: metrics.profitProbability,  // percentage (0-1)
+        currentDelta: metrics.delta,    // rate of change
+        currentTheta: metrics.theta,    // time decay per day
+        currentGamma: metrics.gamma,    // rate of delta change
+        currentVega: metrics.vega       // volatility sensitivity
       },
       currentStockPrice: stockPrice,
       strikePrice,
@@ -249,6 +260,11 @@ export class PayoffCalculator {
    * Calculate payoff for a calendar spread (more complex Forward Factor trade)
    * BUY signal: Buy front month, sell back month (reverse calendar)
    * SELL signal: Sell front month, buy back month (calendar spread)
+   * 
+   * IMPORTANT: All returned values are in DOLLARS PER SHARE, not per contract
+   * The caller must multiply by:
+   * - 100 to get per-contract values
+   * - 100 * quantity to get total position values
    */
   calculateCalendarSpreadPayoff(
     opportunity: Opportunity,
@@ -261,6 +277,7 @@ export class PayoffCalculator {
     const backIV = opportunity.back_iv / 100;
     
     // Calculate initial position values
+    // NOTE: Black-Scholes returns values in DOLLARS PER SHARE
     const frontPricing = BlackScholesModel.calculate({
       stockPrice,
       strikePrice,
@@ -283,16 +300,16 @@ export class PayoffCalculator {
     // BUY signal (negative FF): Buy front, sell back -> net cost = front - back (usually negative = we receive)
     // SELL signal (positive FF): Sell front, buy back -> net cost = back - front (usually positive = we pay)
     // Use call option prices for calendar spread (not straddle)
-    const frontCost = frontPricing.callPrice;
-    const backCost = backPricing.callPrice;
+    const frontCost = frontPricing.callPrice;  // $/share
+    const backCost = backPricing.callPrice;    // $/share
     
     // Calculate raw net cost (positive = we pay, negative = we receive)
     const rawNetCost = opportunity.signal === 'BUY' 
-      ? frontCost - backCost  // Buy front, sell back
-      : backCost - frontCost; // Sell front, buy back
+      ? frontCost - backCost  // Buy front, sell back ($/share)
+      : backCost - frontCost; // Sell front, buy back ($/share)
     
     // For P&L calculations, we use the absolute value
-    const netDebit = Math.abs(rawNetCost);
+    const netDebit = Math.abs(rawNetCost);  // $/share
     const isNetCredit = rawNetCost < 0;
     
     console.log("=== Calendar Spread Calculation Debug ===");
@@ -301,9 +318,11 @@ export class PayoffCalculator {
     console.log("Strike Price:", strikePrice);
     console.log("Front IV:", opportunity.front_iv, "Back IV:", opportunity.back_iv);
     console.log("Front DTE:", opportunity.front_dte, "Back DTE:", opportunity.back_dte);
-    console.log("Front Straddle Price:", frontCost.toFixed(2));
-    console.log("Back Straddle Price:", backCost.toFixed(2));
-    console.log(`Net ${isNetCredit ? 'Credit' : 'Debit'}: ${netDebit.toFixed(2)}`);
+    console.log("Front Call Price (per share):", frontCost.toFixed(4));
+    console.log("Back Call Price (per share):", backCost.toFixed(4));
+    console.log("Raw Net Cost (per share):", rawNetCost.toFixed(4));
+    console.log(`Net ${isNetCredit ? 'Credit' : 'Debit'} (per share): ${netDebit.toFixed(4)}`);
+    console.log(`Net ${isNetCredit ? 'Credit' : 'Debit'} (per contract): ${(netDebit * 100).toFixed(2)}`);
     console.log("Strategy:", opportunity.signal === 'BUY' ? 'REVERSE CALENDAR (Buy front, Sell back)' : 'CALENDAR (Sell front, Buy back)');
     
     // Calculate max profit at front expiration

@@ -6,6 +6,20 @@ import { History as HistoryIcon, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+// Helper function to render tickers list
+function renderTickersList(tickersList: unknown): string {
+  if (!tickersList || !Array.isArray(tickersList)) {
+    return 'Custom ticker list';
+  }
+  const tickers = tickersList as string[];
+  if (tickers.length === 0) {
+    return 'Custom ticker list';
+  }
+  const displayedTickers = tickers.slice(0, 10).join(', ');
+  const remaining = tickers.length > 10 ? ` +${tickers.length - 10} more` : '';
+  return displayedTickers + remaining;
+}
+
 export default function History() {
   const [, setLocation] = useLocation();
 
@@ -65,6 +79,12 @@ export default function History() {
                       <div className="text-xs sm:text-sm text-muted-foreground">
                         Scanned {scan.tickers_scanned} tickers • FF range: {scan.min_ff}% to {scan.max_ff}%
                       </div>
+                      {Array.isArray(scan.tickers_list) && scan.tickers_list.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <span className="font-medium">Tickers: </span>
+                          {renderTickersList(scan.tickers_list)}
+                        </div>
+                      )}
                     </div>
                     <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground self-end sm:self-center" />
                   </div>

@@ -244,10 +244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const entryPrice = opportunity.entry_price || 1.5; // Use actual entry price if available
     const currentPrice = entryPrice * (1 + randomPnl / 100);
     const quantity = opportunity.quantity || 100; // Use actual quantity if available
-    const currentPnl = (currentPrice - entryPrice) * quantity;
+    // Multiply by 100 for options contract multiplier (100 shares per contract)
+    const currentPnl = (currentPrice - entryPrice) * quantity * 100;
     
-    // Correct P&L percentage calculation: (current_pnl / (entry_price * quantity)) * 100
-    const currentPnlPercent = (currentPnl / (entryPrice * quantity)) * 100;
+    // Correct P&L percentage calculation: (current_pnl / (entry_price * quantity * 100)) * 100
+    const currentPnlPercent = (currentPnl / (entryPrice * quantity * 100)) * 100;
     
     return {
       current_price: currentPrice,
@@ -365,13 +366,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         actual_back_strike
       } = validationResult.data;
       
-      // Use actual prices if provided, otherwise calculate estimates
-      const entryPrice = actual_entry_price || 1.5; // Use actual or estimate
-      const stockPrice = actual_stock_price || 100; // Use actual or estimate
-      const frontStrike = actual_front_strike || stockPrice; // Use actual or ATM
-      const backStrike = actual_back_strike || stockPrice; // Use actual or ATM
+      // Calculate payoff analysis to get accurate entry price and max profit/loss
+      const calculator = new PayoffCalculator();
+      const payoffAnalysis = calculator.calculateCalendarSpreadPayoff(
+        opportunity, 
+        actual_stock_price
+      );
       
-      // Calculate stop loss and take profit prices
+      // Debug logging to understand the units from payoff analysis
+      console.log("=== Paper Trade Creation Debug ===");
+      console.log("Payoff Analysis Metrics:");
+      console.log("  premium (netDebit):", payoffAnalysis.metrics.premium);
+      console.log("  maxLoss:", payoffAnalysis.metrics.maxLoss);
+      console.log("  maxProfit:", payoffAnalysis.metrics.maxProfit);
+      console.log("  upperBreakeven:", payoffAnalysis.metrics.upperBreakeven);
+      console.log("  lowerBreakeven:", payoffAnalysis.metrics.lowerBreakeven);
+      console.log("Trade Parameters:");
+      console.log("  quantity:", quantity);
+      console.log("  signal:", opportunity.signal);
+      
+      // Use actual prices if provided, otherwise use calculated values from payoff analysis
+      const entryPrice = actual_entry_price || payoffAnalysis.metrics.premium;
+      const stockPrice = actual_stock_price || payoffAnalysis.currentStockPrice;
+      const frontStrike = actual_front_strike || payoffAnalysis.strikePrice; // ATM
+      const backStrike = actual_back_strike || payoffAnalysis.strikePrice; // ATM
+      
+      // Calculate stop loss and take profit prices based on entry price
       const stopLossPrice = entryPrice * (1 - stop_loss_percent / 100);
       const takeProfitPrice = entryPrice * (1 + take_profit_percent / 100);
       
@@ -379,7 +399,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const frontExpiryDate = new Date(opportunity.front_date);
       const daysToFrontExpiry = Math.floor((frontExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
       
-      // Create paper trade
+      // IMPORTANT FIX: The values from payoffAnalysis.metrics are actually in dollars per share from Black-Scholes
+      // But the payoff diagram expects per-contract values
+      // We need to check and scale appropriately
+      
+      // Check if values need scaling - if they're less than 100, they're likely per-share
+      // Otherwise they might already be per-contract
+      const maxLossValue = payoffAnalysis.metrics.maxLoss;
+      const maxProfitValue = typeof payoffAnalysis.metrics.maxProfit === 'string' 
+        ? parseFloat(payoffAnalysis.metrics.maxProfit)
+        : payoffAnalysis.metrics.maxProfit;
+      
+      // The values from Black-Scholes are in dollars per share
+      // Convert to dollars per contract (* 100), then multiply by quantity
+      const maxRisk = maxLossValue * 100 * quantity;
+      const maxProfit = payoffAnalysis.metrics.maxProfit === 'Unlimited' 
+        ? null 
+        : maxProfitValue * 100 * quantity;
+      
+      console.log("Calculated Database Values:");
+      console.log("  maxLoss from payoff (per share):", maxLossValue);
+      console.log("  maxProfit from payoff (per share):", maxProfitValue);
+      console.log("  max_risk (DB - total position):", maxRisk);
+      console.log("  max_profit (DB - total position):", maxProfit);
+      console.log("  Per contract values: maxLoss=$" + (maxLossValue * 100).toFixed(2) + ", maxProfit=$" + (maxProfitValue * 100).toFixed(2));
+      console.log("==================");
+      
+      // Create paper trade with calculated values
       const paperTrade = await storage.createPaperTrade({
         ticker: opportunity.ticker,
         signal: opportunity.signal,
@@ -390,6 +436,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         front_expiry: opportunity.front_date,
         back_expiry: opportunity.back_date,
         entry_price: entryPrice,
+        front_entry_price: payoffAnalysis.metrics.premium, // Store the actual calculated premium
+        back_entry_price: 0, // Will be calculated if needed
         front_entry_iv: opportunity.front_iv,
         back_entry_iv: opportunity.back_iv,
         stock_entry_price: stockPrice,
@@ -401,7 +449,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         back_current_iv: opportunity.back_iv,
         stop_loss_price: stopLossPrice,
         take_profit_price: takeProfitPrice,
-        max_risk: entryPrice * quantity,
+        max_risk: maxRisk,
+        max_profit: maxProfit,
         forward_factor: opportunity.forward_factor,
         original_scan_id: null,
         days_to_front_expiry: daysToFrontExpiry,
@@ -521,6 +570,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Paper trade not found" });
       }
       
+      // Log incoming price update request
+      console.log("=== PATCH /api/paper-trades/:id/prices - Price Update Request ===");
+      console.log("Trade ID:", id);
+      console.log("Request body:", req.body);
+      console.log("Existing trade prices:");
+      console.log("  entry_price:", existingTrade.entry_price);
+      console.log("  front_entry_price:", existingTrade.front_entry_price);
+      console.log("  back_entry_price:", existingTrade.back_entry_price);
+      
       // Update the prices - validate and parse the input
       const updateData: any = {};
       
@@ -529,6 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const parsedPrice = parseFloat(req.body.entry_price);
         if (!isNaN(parsedPrice) && parsedPrice >= 0) {
           updateData.entry_price = parsedPrice;
+          console.log("Updating entry_price to:", parsedPrice);
           
           // Also update front/back entry prices proportionally if not provided
           // This maintains the spread ratio while adjusting to the new net price
@@ -538,6 +597,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const ratio = parsedPrice / currentSpread;
               updateData.front_entry_price = existingTrade.front_entry_price * ratio;
               updateData.back_entry_price = existingTrade.back_entry_price * ratio;
+              console.log("Proportionally updating front/back prices:");
+              console.log("  front_entry_price:", updateData.front_entry_price);
+              console.log("  back_entry_price:", updateData.back_entry_price);
             }
           }
         }
@@ -548,12 +610,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const parsedPrice = parseFloat(req.body.front_entry_price);
         if (!isNaN(parsedPrice) && parsedPrice >= 0) {
           updateData.front_entry_price = parsedPrice;
+          console.log("Updating front_entry_price to:", parsedPrice);
         }
       }
       if (req.body.back_entry_price !== undefined) {
         const parsedPrice = parseFloat(req.body.back_entry_price);
         if (!isNaN(parsedPrice) && parsedPrice >= 0) {
           updateData.back_entry_price = parsedPrice;
+          console.log("Updating back_entry_price to:", parsedPrice);
         }
       }
       
@@ -591,13 +655,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updateData.entry_price = existingTrade.signal === 'BUY' 
           ? Math.abs(frontPrice - backPrice)
           : Math.abs(backPrice - frontPrice);
+        
+        console.log("Recalculated entry_price based on leg prices:");
+        console.log("  Signal:", existingTrade.signal);
+        console.log("  Front price:", frontPrice);
+        console.log("  Back price:", backPrice);
+        console.log("  Calculated entry_price:", updateData.entry_price);
       }
+      
+      console.log("Final update data:", updateData);
       
       const updatedTrade = await storage.updatePaperTrade(id, updateData);
       
       if (!updatedTrade) {
         return res.status(404).json({ error: "Failed to update trade" });
       }
+      
+      console.log("Trade successfully updated. New values:");
+      console.log("  entry_price:", updatedTrade.entry_price);
+      console.log("  front_entry_price:", updatedTrade.front_entry_price);
+      console.log("  back_entry_price:", updatedTrade.back_entry_price);
+      console.log("=== End Price Update ===\n");
       
       res.json({ 
         success: true,

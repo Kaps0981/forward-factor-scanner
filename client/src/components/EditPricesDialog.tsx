@@ -15,6 +15,8 @@ interface EditPricesDialogProps {
   trade: PaperTrade | null;
   onConfirm: (tradeId: number, data: {
     entry_price?: number;
+    front_entry_price?: number;
+    back_entry_price?: number;
     stock_entry_price?: number;
     front_strike?: number;
     back_strike?: number;
@@ -30,6 +32,8 @@ export function EditPricesDialog({
   onConfirm 
 }: EditPricesDialogProps) {
   const [entryPrice, setEntryPrice] = useState<string>("");
+  const [frontEntryPrice, setFrontEntryPrice] = useState<string>("");
+  const [backEntryPrice, setBackEntryPrice] = useState<string>("");
   const [stockPrice, setStockPrice] = useState<string>("");
   const [frontStrike, setFrontStrike] = useState<string>("");
   const [backStrike, setBackStrike] = useState<string>("");
@@ -39,6 +43,8 @@ export function EditPricesDialog({
   useEffect(() => {
     if (trade) {
       setEntryPrice(trade.entry_price.toString());
+      setFrontEntryPrice(trade.front_entry_price?.toString() || "0");
+      setBackEntryPrice(trade.back_entry_price?.toString() || "0");
       setStockPrice(trade.stock_entry_price.toString());
       setFrontStrike(trade.front_strike.toString());
       setBackStrike(trade.back_strike.toString());
@@ -56,6 +62,13 @@ export function EditPricesDialog({
     // Send entry_price directly (net debit/credit)
     if (entryPrice && parseFloat(entryPrice) !== trade.entry_price) {
       data.entry_price = parseFloat(entryPrice);
+    }
+    // Send individual leg prices
+    if (frontEntryPrice && parseFloat(frontEntryPrice) !== trade.front_entry_price) {
+      data.front_entry_price = parseFloat(frontEntryPrice);
+    }
+    if (backEntryPrice && parseFloat(backEntryPrice) !== trade.back_entry_price) {
+      data.back_entry_price = parseFloat(backEntryPrice);
     }
     if (stockPrice && parseFloat(stockPrice) !== trade.stock_entry_price) {
       data.stock_entry_price = parseFloat(stockPrice);
@@ -122,6 +135,7 @@ export function EditPricesDialog({
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
               Update these values to match the actual prices from your Moomoo execution.
+              Enter the individual option prices paid for each leg (front and back options) as well as the net debit/credit.
               Leave unchanged if the current values are correct.
             </AlertDescription>
           </Alert>
@@ -130,7 +144,7 @@ export function EditPricesDialog({
 
           {/* Entry Prices */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Entry Prices</h3>
+            <h3 className="font-semibold">Entry Prices (Prices Paid for Options)</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="entry-price">Net Debit/Credit</Label>
@@ -142,6 +156,34 @@ export function EditPricesDialog({
                   onChange={(e) => setEntryPrice(e.target.value)}
                   data-testid="input-edit-entry-price"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="front-entry-price">Front Option Price</Label>
+                <Input
+                  id="front-entry-price"
+                  type="number"
+                  step="0.01"
+                  value={frontEntryPrice}
+                  onChange={(e) => setFrontEntryPrice(e.target.value)}
+                  data-testid="input-edit-front-entry-price"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Price paid for {trade.front_expiry} option
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="back-entry-price">Back Option Price</Label>
+                <Input
+                  id="back-entry-price"
+                  type="number"
+                  step="0.01"
+                  value={backEntryPrice}
+                  onChange={(e) => setBackEntryPrice(e.target.value)}
+                  data-testid="input-edit-back-entry-price"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Price paid for {trade.back_expiry} option
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="stock-price">Stock Price at Entry</Label>
@@ -161,7 +203,7 @@ export function EditPricesDialog({
 
           {/* Strike Prices */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Strike Prices</h3>
+            <h3 className="font-semibold">Strike Prices (Fixed Strike Prices of Options)</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="front-strike">Front Strike</Label>

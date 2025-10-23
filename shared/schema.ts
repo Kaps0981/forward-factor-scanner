@@ -233,6 +233,7 @@ export const paperTrades = pgTable("paper_trades", {
   stop_loss_price: doublePrecision("stop_loss_price"),
   take_profit_price: doublePrecision("take_profit_price"),
   max_risk: doublePrecision("max_risk"),
+  max_profit: doublePrecision("max_profit"),
   
   // News and events
   news_alerts: jsonb("news_alerts"), // Array of news events

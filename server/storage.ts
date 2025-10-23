@@ -153,9 +153,10 @@ export class DatabaseStorage implements IStorage {
     const trade = await this.getPaperTrade(id);
     if (!trade) return undefined;
     
-    const realizedPnl = (exitPrice - trade.entry_price) * trade.quantity;
-    // Correct P&L percentage calculation: (pnl / (entry_price * quantity)) * 100
-    const realizedPnlPercent = (realizedPnl / (trade.entry_price * trade.quantity)) * 100;
+    // Multiply by 100 for options contract multiplier (100 shares per contract)
+    const realizedPnl = (exitPrice - trade.entry_price) * trade.quantity * 100;
+    // Correct P&L percentage calculation: (pnl / (entry_price * quantity * 100)) * 100
+    const realizedPnlPercent = (realizedPnl / (trade.entry_price * trade.quantity * 100)) * 100;
     
     const [result] = await db
       .update(paperTrades)
@@ -287,8 +288,9 @@ export class DatabaseStorage implements IStorage {
       : null;
     
     const totalCapital = 100000; // Starting capital
+    // Multiply by 100 for options contract multiplier (100 shares per contract)
     const cashUsed = openTrades.reduce((sum, trade) => 
-      sum + (trade.entry_price * trade.quantity), 0);
+      sum + (trade.entry_price * trade.quantity * 100), 0);
     const cashBalance = totalCapital - cashUsed + totalRealizedPnl;
     const totalValue = cashBalance + positionsValue;
     const totalPnl = totalValue - totalCapital;
