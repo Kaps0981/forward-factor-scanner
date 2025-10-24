@@ -233,7 +233,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-7xl max-h-[95vh] overflow-auto p-0">
+      <DialogContent className="max-w-[90vw] max-h-[95vh] overflow-auto p-0">
         <div className="p-6 space-y-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
@@ -374,7 +374,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
               <CardTitle className="text-sm font-medium">P&L Diagram</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={350}>
                 <ComposedChart
                   data={chartData}
                   margin={{ top: 10, right: 30, left: 10, bottom: 10 }}

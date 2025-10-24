@@ -134,9 +134,9 @@ export class ForwardFactorScanner {
       opt.strike_price === atmStrike && opt.contract_type === 'put'
     );
 
-    // Calculate ATM call and put OI
-    const atmCallOI = atmCalls.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / Math.max(1, atmCalls.length);
-    const atmPutOI = atmPuts.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / Math.max(1, atmPuts.length);
+    // Calculate ATM call and put OI - SUM all OI at the ATM strike (don't average)
+    const atmCallOI = atmCalls.reduce((sum, opt) => sum + (opt.open_interest || 0), 0);
+    const atmPutOI = atmPuts.reduce((sum, opt) => sum + (opt.open_interest || 0), 0);
     
     // Calculate combined straddle OI
     const straddleOI = atmCallOI + atmPutOI;
