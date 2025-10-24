@@ -233,7 +233,7 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-[90vw] max-h-[95vh] overflow-auto p-0">
+      <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-auto p-0">
         <div className="p-6 space-y-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
@@ -272,8 +272,8 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
           <div className="p-6 rounded-lg bg-slate-900 dark:bg-slate-950 border border-slate-800">
             <h3 className="text-lg font-semibold text-slate-200 mb-6">Strategy Analysis</h3>
             
-            {/* Row 1: Max Profit, Breakeven, Max Loss */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b border-slate-800">
+            {/* Row 1: Max Profit, Max Loss */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-slate-800">
               <div className="space-y-1">
                 <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Max Profit</div>
                 <div className="text-3xl font-bold text-green-500 tabular-nums">
@@ -283,24 +283,6 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                 </div>
                 <div className="text-xs text-slate-500">
                   {opportunity.signal === 'BUY' ? 'When Stock Moves Significantly' : 'At Strike Price'}
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">Breakeven</div>
-                <div className="space-y-1 mt-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Lower:</span>
-                    <span className="text-xl font-semibold text-slate-200 tabular-nums">
-                      {formatCurrency(payoffData.metrics.lowerBreakeven)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">Upper:</span>
-                    <span className="text-xl font-semibold text-slate-200 tabular-nums">
-                      {formatCurrency(payoffData.metrics.upperBreakeven)}
-                    </span>
-                  </div>
                 </div>
               </div>
 
@@ -374,10 +356,10 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
               <CardTitle className="text-sm font-medium">P&L Diagram</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={350}>
+              <ResponsiveContainer width="100%" height={250}>
                 <ComposedChart
                   data={chartData}
-                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                  margin={{ top: 10, right: 20, left: 5, bottom: 10 }}
                 >
                   {/* Gradient definitions for profit/loss areas */}
                   <defs>
@@ -413,7 +395,8 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     type="number"
                     domain={['dataMin', 'dataMax']}
                     tickFormatter={(value) => `$${value.toFixed(0)}`}
-                    label={{ value: 'Stock Price', position: 'insideBottom', offset: -5 }}
+                    tick={{ fontSize: 10 }}
+                    label={{ value: 'Stock Price', position: 'insideBottom', offset: -5, fontSize: 11 }}
                   />
                   <YAxis
                     tickFormatter={(value) => {
@@ -422,7 +405,8 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                         : `$${value.toFixed(0)}`;
                       return value < 0 ? formatted : formatted;
                     }}
-                    label={{ value: 'Profit / Loss', angle: -90, position: 'insideLeft' }}
+                    tick={{ fontSize: 10 }}
+                    label={{ value: '$', angle: -90, position: 'insideLeft', fontSize: 11 }}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   
@@ -433,7 +417,6 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     stroke="hsl(var(--foreground))" 
                     strokeWidth={2}
                     opacity={0.4}
-                    label={{ value: "Breakeven", position: "left", fill: "hsl(var(--foreground))", fontSize: 12 }}
                   />
                   
                   {/* Current stock price - made more prominent */}
@@ -450,23 +433,6 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                     }}
                   />
                   
-                  {/* Breakeven points */}
-                  <ReferenceLine
-                    x={payoffData.metrics.upperBreakeven}
-                    stroke="#f59e0b"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 5"
-                    opacity={0.7}
-                    label={{ value: "Upper BE", position: "top", fontSize: 11 }}
-                  />
-                  <ReferenceLine
-                    x={payoffData.metrics.lowerBreakeven}
-                    stroke="#f59e0b"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 5"
-                    opacity={0.7}
-                    label={{ value: "Lower BE", position: "top", fontSize: 11 }}
-                  />
                   
                   {/* P&L Areas with conditional fills for profit/loss */}
                   {/* Current time curve */}
@@ -505,8 +471,8 @@ export function PayoffDiagram({ open, onClose, opportunity, payoffData }: Payoff
                   
                   <Legend 
                     wrapperStyle={{
-                      paddingTop: '10px',
-                      fontSize: '12px'
+                      paddingTop: '5px',
+                      fontSize: '10px'
                     }}
                   />
                 </ComposedChart>

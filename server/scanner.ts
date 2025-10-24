@@ -6,7 +6,7 @@ interface ExpirationGroup {
   dte: number;
   options: PolygonOption[];
   atmIV: number;
-  avgOpenInterest: number;
+  totalOpenInterest: number;
   atmCallOI: number;
   atmPutOI: number;
   straddleOI: number;
@@ -85,7 +85,7 @@ export class ForwardFactorScanner {
     return avgIV * 100;
   }
 
-  private calculateAvgOpenInterest(options: PolygonOption[], stockPrice: number): number {
+  private calculateTotalOpenInterest(options: PolygonOption[], stockPrice: number): number {
     const atmOptions = options.filter(opt => 
       this.isATM(opt.strike_price, stockPrice) && opt.open_interest
     );
@@ -94,8 +94,8 @@ export class ForwardFactorScanner {
       return 0;
     }
 
-    const avgOI = atmOptions.reduce((sum, opt) => sum + (opt.open_interest || 0), 0) / atmOptions.length;
-    return Math.round(avgOI);
+    const totalOI = atmOptions.reduce((sum, opt) => sum + (opt.open_interest || 0), 0);
+    return Math.round(totalOI);
   }
 
   private calculateTotalVolume(options: PolygonOption[], stockPrice: number): number {
@@ -181,7 +181,7 @@ export class ForwardFactorScanner {
     expirations.forEach((opts, date) => {
       const dte = this.calculateDTE(date);
       const atmIV = this.calculateATM_IV(opts, stockPrice);
-      const avgOpenInterest = this.calculateAvgOpenInterest(opts, stockPrice);
+      const totalOpenInterest = this.calculateTotalOpenInterest(opts, stockPrice);
       const straddleLiquidity = this.calculateStraddleLiquidity(opts, stockPrice);
       const totalVolume = this.calculateTotalVolume(opts, stockPrice);
       
@@ -191,7 +191,7 @@ export class ForwardFactorScanner {
           dte, 
           options: opts, 
           atmIV, 
-          avgOpenInterest,
+          totalOpenInterest,
           atmCallOI: straddleLiquidity.atmCallOI,
           atmPutOI: straddleLiquidity.atmPutOI,
           straddleOI: straddleLiquidity.straddleOI,
@@ -335,7 +335,7 @@ export class ForwardFactorScanner {
             back_dte: back.dte,
             back_iv: Math.round(back.atmIV * 100) / 100,
             forward_vol: Math.round(forwardVol * 100) / 100,
-            avg_open_interest: front.avgOpenInterest,
+            avg_open_interest: front.totalOpenInterest,
             has_earnings_soon: false, // Will be populated by routes.ts
             // Front month straddle liquidity metrics
             atm_call_oi: front.atmCallOI,

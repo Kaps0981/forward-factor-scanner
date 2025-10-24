@@ -90,11 +90,11 @@ export class PayoffCalculator {
     return {
       curves,
       metrics: {
-        premium: metrics.premium,        // $/share
+        premium: metrics.premium * 100,        // $/contract (multiply by 100 for per-contract)
         upperBreakeven: metrics.upperBreakeven,  // stock price
         lowerBreakeven: metrics.lowerBreakeven,  // stock price
-        maxLoss: metrics.maxLoss,       // $/share - multiply by 100 * quantity for total
-        maxProfit: metrics.maxProfit,   // $/share or 'Unlimited'
+        maxLoss: metrics.maxLoss * 100,       // $/contract (multiply by 100 for per-contract)
+        maxProfit: metrics.maxProfit === 'Unlimited' ? metrics.maxProfit : (typeof metrics.maxProfit === 'number' ? (metrics.maxProfit * 100).toString() : metrics.maxProfit),   // $/contract or 'Unlimited'
         profitProbability: metrics.profitProbability,  // percentage (0-1)
         currentDelta: metrics.delta,    // rate of change
         currentTheta: metrics.theta,    // time decay per day
@@ -186,7 +186,7 @@ export class PayoffCalculator {
 
       dataPoints.push({
         stockPrice,
-        pnl,
+        pnl: pnl * 100,  // Multiply by 100 for per-contract value
         percentMove
       });
     }
@@ -400,11 +400,11 @@ export class PayoffCalculator {
     return {
       curves,
       metrics: {
-        premium: Math.abs(netDebit),
+        premium: Math.abs(netDebit) * 100,  // Convert to per-contract (100 shares)
         upperBreakeven,
         lowerBreakeven,
-        maxLoss: Math.abs(netDebit),
-        maxProfit: maxProfitValue.toFixed(2),
+        maxLoss: Math.abs(netDebit) * 100,  // Convert to per-contract (100 shares)
+        maxProfit: (maxProfitValue * 100).toFixed(2),  // Convert to per-contract (100 shares)
         profitProbability,
         ...greeks
       },
@@ -512,7 +512,7 @@ export class PayoffCalculator {
 
         dataPoints.push({
           stockPrice,
-          pnl,
+          pnl: pnl * 100,  // Convert to per-contract (100 shares)
           percentMove
         });
         
