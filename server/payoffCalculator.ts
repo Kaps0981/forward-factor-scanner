@@ -44,7 +44,11 @@ export interface PayoffAnalysis {
 }
 
 export class PayoffCalculator {
-  private riskFreeRate: number = 0.05; // 5% Treasury rate
+  // Risk-free rate for option pricing (3-month Treasury rate)
+  // Uses environment variable if set, otherwise defaults to 4.5% (as of Q4 2024)
+  // Update this value periodically to reflect current short-term treasury rates
+  // Source: https://www.treasury.gov/resource-center/data-chart-center/interest-rates/
+  private riskFreeRate: number = parseFloat(process.env.RISK_FREE_RATE || '0.045');
 
   /**
    * Calculate complete payoff analysis for a Forward Factor opportunity
@@ -261,6 +265,9 @@ export class PayoffCalculator {
     const frontIV = opportunity.front_iv / 100;
     const backIV = opportunity.back_iv / 100;
     
+    // Get dividend yield from opportunity data (already in decimal format from Polygon API)
+    const dividendYield = opportunity.dividend_yield || 0;
+    
     // Calculate initial position values
     // NOTE: Black-Scholes returns values in DOLLARS PER SHARE
     const frontPricing = BlackScholesModel.calculate({
@@ -269,7 +276,7 @@ export class PayoffCalculator {
       timeToExpiration: opportunity.front_dte / 365,
       volatility: frontIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield: 0
+      dividendYield
     });
 
     const backPricing = BlackScholesModel.calculate({
@@ -278,7 +285,7 @@ export class PayoffCalculator {
       timeToExpiration: opportunity.back_dte / 365,
       volatility: backIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield: 0
+      dividendYield
     });
 
     // Net debit/credit calculation depends on signal type
@@ -318,7 +325,7 @@ export class PayoffCalculator {
       timeToExpiration: daysRemainingInBack / 365,
       volatility: backIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield: 0
+      dividendYield
     });
     
     // Max profit calculation depends on signal type
@@ -452,7 +459,7 @@ export class PayoffCalculator {
             timeToExpiration: timePoint.daysToFront / 365,
             volatility: frontIV,
             riskFreeRate: this.riskFreeRate,
-            dividendYield: 0
+            dividendYield
           });
           // Use call price for calendar spread (not straddle)
           frontValue = frontPricing.callPrice;
@@ -468,7 +475,7 @@ export class PayoffCalculator {
             timeToExpiration: daysToBack / 365,
             volatility: backIV,
             riskFreeRate: this.riskFreeRate,
-            dividendYield: 0
+            dividendYield
           });
           // Use call price for calendar spread (not straddle)
           backValue = backPricing.callPrice;

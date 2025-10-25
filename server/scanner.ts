@@ -465,7 +465,23 @@ export class ForwardFactorScanner {
         return [];
       }
 
-      const stockPrice = this.estimateStockPrice(options);
+      // Fetch actual stock price and ticker details from Polygon API
+      let stockPrice = await this.polygon.getLastQuote(ticker);
+      const tickerDetails = await this.polygon.getTickerDetails(ticker);
+      
+      // Fallback to estimation if API fails
+      if (!stockPrice || stockPrice === 0) {
+        console.warn(`Failed to fetch stock price for ${ticker}, using estimation`);
+        stockPrice = this.estimateStockPrice(options);
+      } else {
+        console.log(`Fetched actual stock price for ${ticker}: $${stockPrice.toFixed(2)}`);
+      }
+      
+      // Log dividend yield if available
+      if (tickerDetails?.dividend_yield) {
+        console.log(`${ticker} dividend yield: ${tickerDetails.dividend_yield}%`);
+      }
+      
       const expirationGroups = this.groupByExpiration(options, stockPrice);
 
       if (expirationGroups.length < 2) {
@@ -555,6 +571,14 @@ export class ForwardFactorScanner {
               // FF calculation mode fields
               ff_calculation_mode: ffCalculationMode,
               is_ex_earnings: ffCalculationMode === 'ex-earnings',
+              // Stock fundamentals from Polygon API
+              stock_price: stockPrice,
+              dividend_yield: tickerDetails?.dividend_yield || 0, // Already in decimal format from Polygon
+              // Earnings date information  
+              earnings_date: tickerDetails?.next_earnings_date,
+              // Mark as estimated since Ticker Details API doesn't provide confirmation status
+              // (would need separate Benzinga Earnings API call for confirmation)
+              earnings_estimated: tickerDetails?.next_earnings_date ? true : undefined,
             });
           }
         }

@@ -50,6 +50,18 @@ export interface PolygonSnapshotResponse {
   status: string;
 }
 
+export interface PolygonTickerDetails {
+  ticker: string;
+  name?: string;
+  market_cap?: number;
+  dividend_yield?: number; // Annual dividend yield as DECIMAL (e.g., 0.02 for 2%)
+  description?: string;
+  primary_exchange?: string;
+  market?: string;
+  next_earnings_date?: string;
+  // Note: Earnings confirmation status requires separate Benzinga Earnings API
+}
+
 export class PolygonService {
   private apiKey: string;
 
@@ -134,6 +146,39 @@ export class PolygonService {
 
   async waitForRateLimit(seconds: number = 12): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  }
+
+  async getTickerDetails(ticker: string): Promise<PolygonTickerDetails | null> {
+    try {
+      const url = `${POLYGON_BASE_URL}/v3/reference/tickers/${ticker}`;
+      const response = await axios.get(url, {
+        params: {
+          apiKey: this.apiKey,
+        },
+        timeout: 10000,
+      });
+
+      const results = response.data.results;
+      if (!results) {
+        return null;
+      }
+
+      // Extract relevant data from API response
+      return {
+        ticker: results.ticker || ticker,
+        name: results.name,
+        market_cap: results.market_cap,
+        dividend_yield: results.dividend_yield, // Annual yield as DECIMAL (e.g., 0.02 = 2%)
+        description: results.description,
+        primary_exchange: results.primary_exchange,
+        market: results.market,
+        next_earnings_date: results.earnings_announcement?.next_earnings_date,
+        // Note: Earnings confirmation requires separate Benzinga Earnings API call
+      };
+    } catch (error) {
+      console.error(`Failed to fetch ticker details for ${ticker}:`, error);
+      return null;
+    }
   }
 
   async checkEarningsSoon(ticker: string, daysThreshold: number = 7): Promise<boolean> {

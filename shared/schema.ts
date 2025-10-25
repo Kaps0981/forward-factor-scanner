@@ -63,6 +63,9 @@ export const opportunitySchema = z.object({
   // Additional earnings display fields
   days_to_earnings: z.number().nullable().optional(), // Days to earnings for display
   earnings_estimated: z.boolean().optional(), // Whether earnings date is estimated
+  // Stock fundamentals from Polygon API
+  stock_price: z.number().optional(), // Current stock price from API
+  dividend_yield: z.number().optional(), // Annual dividend yield as percentage
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;
@@ -186,6 +189,9 @@ export const opportunities = pgTable("opportunities", {
   // Additional earnings display fields
   days_to_earnings: integer("days_to_earnings"),
   earnings_estimated: boolean("earnings_estimated"),
+  // Stock fundamentals from Polygon API
+  stock_price: doublePrecision("stock_price"),
+  dividend_yield: doublePrecision("dividend_yield"),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });
