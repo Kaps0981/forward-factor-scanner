@@ -125,6 +125,11 @@ export class DatabaseStorage implements IStorage {
     const user = await this.getUser(userId);
     if (!user) return 10; // Default for free tier
     
+    // Special case: Give Kapil 100 scans
+    if (user.firstName && user.firstName.toLowerCase() === 'kapil') {
+      return 100;
+    }
+    
     switch (user.subscriptionTier) {
       case 'pro':
         return 100;
