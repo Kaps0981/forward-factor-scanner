@@ -86,11 +86,10 @@ export function Header({ currentPage = "scanner" }: HeaderProps) {
               </div>
               <div>
                 <h1 className="text-lg md:text-2xl font-semibold tracking-tight">
-                  <span className="hidden sm:inline">Forward Factor</span>
-                  <span className="sm:hidden">FF</span> Scanner
+                  VolEdge
                 </h1>
                 <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
-                  Options volatility mispricing detector
+                  Research-based volatility mispricing detector
                 </p>
               </div>
             </Link>
