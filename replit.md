@@ -23,7 +23,7 @@ The Forward Factor Scanner is a fullstack JavaScript application that helps trad
 - **Configurable Filters**: Adjust Forward Factor range (-100% to +100%) and top N results
 - **High-Speed Parallel Scanning**: Scans 5 tickers simultaneously with optimized API usage
   - 5 tickers: ~4 seconds
-  - 30 tickers: ~30 seconds (12x faster than sequential)
+  - 100 tickers: ~100 seconds (20x faster than sequential)
 - **Smart Rate Limiting**: Optimized for Polygon.io unlimited API plans with minimal delays
 
 ### Analysis
@@ -282,7 +282,7 @@ Application runs on `http://localhost:5000`
 
 1. **Progress Updates**: Uses simulated progress bar (no real-time per-ticker updates via SSE/WebSocket)
 2. **Polygon API Limits**: Free tier has 5 requests/minute; scanner auto-delays 12s between tickers
-3. **Ticker Limit**: Maximum 30 tickers per scan to prevent timeouts
+3. **Ticker Limit**: Maximum 100 tickers per scan to prevent timeouts
 4. **IV Values**: Polygon.io returns lower IV values than expected; relative FF calculations remain valid
 
 ## Future Enhancements

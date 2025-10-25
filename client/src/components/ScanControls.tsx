@@ -118,7 +118,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   data-testid="input-custom-tickers"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Maximum 30 tickers per scan
+                  Maximum 100 tickers per scan
                 </p>
               </TabsContent>
               

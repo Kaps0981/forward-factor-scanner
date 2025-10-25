@@ -59,7 +59,7 @@ export default function Scanner() {
       ffCalculationMode?: 'raw' | 'ex-earnings';
     }) => {
       const tickersToScan = params.tickers || [];
-      const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 30) : 30;
+      const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 100) : 100;
       
       setScanProgress({ 
         current: 0, 

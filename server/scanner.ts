@@ -576,7 +576,7 @@ export class ForwardFactorScanner {
     onProgress?: (current: number, total: number, ticker: string) => void
   ): Promise<Opportunity[]> {
     const allOpportunities: Opportunity[] = [];
-    const limitedTickers = tickers.slice(0, 30);
+    const limitedTickers = tickers.slice(0, 100);
 
     // Scan 5 tickers in parallel for speed (with unlimited API plan)
     const batchSize = 5;

@@ -1039,7 +1039,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventsService = new FinancialEventsService(POLYGON_API_KEY);
       
       const opportunities = await scanner.scanMultiple(
-        tickersToScan.slice(0, 30),
+        tickersToScan.slice(0, 100),
         minFF,
         maxFF,
         dte_strategy || '30-90',
@@ -1149,12 +1149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save scan to database
       const scan = await storage.createScan({
-        tickers_scanned: Math.min(tickersToScan.length, 30),
+        tickers_scanned: Math.min(tickersToScan.length, 100),
         total_opportunities: limitedOpportunities.length,
         min_ff: minFF,
         max_ff: maxFF,
         top_n: topN,
-        tickers_list: tickersToScan.slice(0, 30),
+        tickers_list: tickersToScan.slice(0, 100),
       });
 
       // Save opportunities to database
@@ -1238,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         scan_id: scan.id,
         opportunities: limitedOpportunities,
-        total_tickers_scanned: Math.min(tickersToScan.length, 30),
+        total_tickers_scanned: Math.min(tickersToScan.length, 100),
         total_opportunities_found: limitedOpportunities.length,
       });
     } catch (error) {
