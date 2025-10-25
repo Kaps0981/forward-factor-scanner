@@ -93,14 +93,14 @@ export default function PaperTrading() {
       const opportunity: Opportunity = {
         ticker: trade.ticker,
         forward_factor: trade.forward_factor,
-        signal: trade.signal,
+        signal: trade.signal as "BUY" | "SELL",
         front_date: trade.front_expiry,
         front_dte: trade.days_to_front_expiry || 30,
-        front_iv: trade.front_iv || 50,
+        front_iv: trade.front_entry_iv || 50,  // Use front_entry_iv instead of front_iv
         back_date: trade.back_expiry,
         back_dte: (trade.days_to_front_expiry || 30) + 7,
-        back_iv: trade.back_iv || 45,
-        forward_vol: trade.forward_vol || 48,
+        back_iv: trade.back_entry_iv || 45,  // Use back_entry_iv instead of back_iv
+        forward_vol: 48,  // Default value since forward_vol doesn't exist on PaperTrade
         avg_open_interest: 1000,
         has_earnings_soon: false
       };
@@ -755,14 +755,14 @@ export default function PaperTrading() {
             return {
               ticker: trade.ticker,
               forward_factor: trade.forward_factor,
-              signal: trade.signal,
+              signal: trade.signal as "BUY" | "SELL",
               front_date: trade.front_expiry,
               front_dte: trade.days_to_front_expiry || 30,
-              front_iv: trade.front_iv || 50,
+              front_iv: trade.front_entry_iv || 50,  // Use front_entry_iv instead of front_iv
               back_date: trade.back_expiry,
               back_dte: (trade.days_to_front_expiry || 30) + 7,
-              back_iv: trade.back_iv || 45,
-              forward_vol: trade.forward_vol || 48,
+              back_iv: trade.back_entry_iv || 45,  // Use back_entry_iv instead of back_iv
+              forward_vol: 48,  // Default value since forward_vol doesn't exist on PaperTrade
               avg_open_interest: 1000,
               has_earnings_soon: false
             } as Opportunity;
