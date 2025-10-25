@@ -512,4 +512,48 @@ export class PolygonService {
     
     return baseSpread;
   }
+
+  // Get option spreads for real-time monitoring
+  async getOptionSpreads(ticker: string): Promise<any[]> {
+    try {
+      const contracts = await this.getOptionsSnapshot(ticker);
+      if (!contracts || contracts.length === 0) return [];
+
+      // Process contracts to extract spread information
+      const spreads = contracts
+        .filter((c: any) => c.details && c.details.bid && c.details.ask)
+        .map((contract: any) => {
+          const bid = contract.details.bid;
+          const ask = contract.details.ask;
+          const mid = (bid + ask) / 2;
+          const spread = ask - bid;
+          const spread_pct = mid > 0 ? (spread / mid) * 100 : 0;
+
+          return {
+            ticker: contract.underlying_ticker || ticker,
+            expiration: contract.details.expiration_date,
+            strike: contract.details.strike_price,
+            option_type: contract.details.contract_type,
+            bid,
+            ask,
+            mid,
+            spread,
+            spread_pct,
+            volume: contract.day?.volume || 0,
+            open_interest: contract.open_interest || 0,
+            iv: contract.implied_volatility || 0,
+            delta: contract.greeks?.delta || 0,
+            gamma: contract.greeks?.gamma || 0,
+            theta: contract.greeks?.theta || 0,
+            vega: contract.greeks?.vega || 0
+          };
+        })
+        .sort((a: any, b: any) => b.volume - a.volume); // Sort by volume descending
+
+      return spreads;
+    } catch (error) {
+      console.error(`Error getting option spreads for ${ticker}:`, error);
+      return [];
+    }
+  }
 }
