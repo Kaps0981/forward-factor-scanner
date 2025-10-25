@@ -7,6 +7,7 @@ import { SummaryCards } from "@/components/SummaryCards";
 import { ResultsContainer } from "@/components/ResultsContainer";
 import { PaperTradeDialog } from "@/components/PaperTradeDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { OpportunityDetailsModal } from "@/components/OpportunityDetailsModal";
 import { ScanProgress } from "@/components/ScanProgress";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -569,6 +570,28 @@ export default function Scanner() {
       </main>
 
       <Footer />
+      
+      {/* Details Modal */}
+      <OpportunityDetailsModal
+        opportunity={selectedOpportunity}
+        open={showDetailsDialog}
+        onClose={() => setShowDetailsDialog(false)}
+        onAddToPaper={handleAddToPaper}
+      />
+      
+      {/* Paper Trade Dialog */}
+      {selectedOpportunity && (
+        <PaperTradeDialog
+          open={showPaperTradeDialog}
+          onOpenChange={setShowPaperTradeDialog}
+          opportunity={selectedOpportunity}
+          onConfirm={(data) => {
+            // Handle paper trade confirmation
+            console.log('Paper trade confirmed:', data);
+            setShowPaperTradeDialog(false);
+          }}
+        />
+      )}
     </div>
   );
 }
