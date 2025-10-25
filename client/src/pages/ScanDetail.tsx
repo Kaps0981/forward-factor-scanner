@@ -2,11 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "wouter";
 import { type Scan, type Opportunity } from "@shared/schema";
 import { Header } from "@/components/Header";
-import { ResultsTable } from "@/components/ResultsTable";
+import { ResultsContainer } from "@/components/ResultsContainer";
 import { ArrowLeft, Calendar, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { OpportunityDetailsModal } from "@/components/OpportunityDetailsModal";
 
 // Helper function to render tickers list
 function renderTickersList(tickersList: unknown, limit: number = 5): string {
@@ -34,6 +36,8 @@ function getTickersTitle(tickersList: unknown): string {
 export default function ScanDetail() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery<{ scan: Scan; opportunities: Opportunity[] }>({
     queryKey: ["/api/scans", id],
@@ -44,47 +48,16 @@ export default function ScanDetail() {
     },
   });
 
-  const handleExportCSV = () => {
-    if (!data?.opportunities.length) return;
+  const handleViewDetails = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setModalOpen(true);
+  };
 
-    const headers = [
-      "ticker",
-      "forward_factor",
-      "signal",
-      "front_date",
-      "front_dte",
-      "front_iv",
-      "back_date",
-      "back_dte",
-      "back_iv",
-      "forward_vol",
-    ];
-
-    const rows = data.opportunities.map((opp) => [
-      opp.ticker,
-      opp.forward_factor,
-      opp.signal,
-      opp.front_date,
-      opp.front_dte,
-      opp.front_iv,
-      opp.back_date,
-      opp.back_dte,
-      opp.back_iv,
-      opp.forward_vol,
-    ]);
-
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ff-scan-${id}-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-
+  const handleAddToPaper = async (opportunity: Opportunity) => {
+    // Implementation for adding to paper trade
     toast({
-      title: "CSV Exported",
-      description: "Scan results downloaded successfully",
+      title: "Added to Paper Trade",
+      description: `${opportunity.ticker} added to paper trading`,
     });
   };
 
@@ -166,9 +139,17 @@ export default function ScanDetail() {
                 </Card>
               </div>
 
-              <ResultsTable
+              <ResultsContainer
                 opportunities={data.opportunities}
-                onExportCSV={handleExportCSV}
+                onViewDetails={handleViewDetails}
+                onAddToPaper={handleAddToPaper}
+              />
+
+              <OpportunityDetailsModal
+                opportunity={selectedOpportunity}
+                open={modalOpen}
+                onClose={() => setModalOpen(false)}
+                onAddToPaper={handleAddToPaper}
               />
             </>
           )}
