@@ -52,7 +52,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
     // Convert FF filter mode to actual thresholds
     const ffThresholds = {
       aggressive: { min: 30, max: 100 },   // |FF| > 30%
-      moderate: { min: 20, max: 100 },     // |FF| > 20% (OQuants standard)
+      moderate: { min: 20, max: 100 },     // |FF| > 20% (Professional standard)
       balanced: { min: 5, max: 100 },      // |FF| > 5%
       minimal: { min: 0, max: 100 },       // |FF| > 0%
       none: { min: -100, max: 100 },       // No filter
@@ -179,7 +179,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="aggressive">Aggressive (|FF| &gt; 30%) - Top 10% - Sharpe 2.8-3.2</SelectItem>
-                  <SelectItem value="moderate">Moderate (|FF| &gt; 20%) - OQuants Standard ⭐</SelectItem>
+                  <SelectItem value="moderate">Moderate (|FF| &gt; 20%) - Professional Standard ⭐</SelectItem>
                   <SelectItem value="balanced">Balanced (|FF| &gt; 5%) - Top 60% - Sharpe 2.4-2.6</SelectItem>
                   <SelectItem value="minimal">Minimal (|FF| &gt; 0%) - Positive Only</SelectItem>
                   <SelectItem value="none">No Filter (All FF values) ⚠️</SelectItem>
@@ -201,7 +201,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   {ffFilterMode === 'moderate' && (
                     <>
                       <p>• Win Rate: 54-56% | Trades: ~300/month</p>
-                      <p>• OQuants professional standard threshold</p>
+                      <p>• Professional standard threshold</p>
                       <p>• Optimal balance of quality and opportunity</p>
                     </>
                   )}
@@ -300,7 +300,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                     <>
                       <p>• Adjusts for earnings IV premium (~15%)</p>
                       <p>• Finds pure term structure mispricings</p>
-                      <p>• Method used by OQuants professionals</p>
+                      <p>• Method used by professional traders</p>
                     </>
                   ) : (
                     <>
