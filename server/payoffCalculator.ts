@@ -276,7 +276,7 @@ export class PayoffCalculator {
       timeToExpiration: opportunity.front_dte / 365,
       volatility: frontIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield
+      dividendYield: dividendYield
     });
 
     const backPricing = BlackScholesModel.calculate({
@@ -285,7 +285,7 @@ export class PayoffCalculator {
       timeToExpiration: opportunity.back_dte / 365,
       volatility: backIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield
+      dividendYield: dividendYield
     });
 
     // Net debit/credit calculation depends on signal type
@@ -325,7 +325,7 @@ export class PayoffCalculator {
       timeToExpiration: daysRemainingInBack / 365,
       volatility: backIV,
       riskFreeRate: this.riskFreeRate,
-      dividendYield
+      dividendYield: dividendYield
     });
     
     // Max profit calculation depends on signal type
@@ -358,7 +358,8 @@ export class PayoffCalculator {
       opportunity.front_dte,
       opportunity.back_dte,
       rawNetCost,  // Pass the raw cost (can be negative for credit)
-      opportunity.signal
+      opportunity.signal,
+      dividendYield
     );
 
     // Calculate probability of profit based on the spread characteristics
@@ -422,7 +423,8 @@ export class PayoffCalculator {
     frontDTE: number,
     backDTE: number,
     rawNetCost: number,  // Positive = we pay (debit), Negative = we receive (credit)
-    signal: 'BUY' | 'SELL'
+    signal: 'BUY' | 'SELL',
+    dividendYield: number
   ): PayoffCurve[] {
     const curves: PayoffCurve[] = [];
     
@@ -459,7 +461,7 @@ export class PayoffCalculator {
             timeToExpiration: timePoint.daysToFront / 365,
             volatility: frontIV,
             riskFreeRate: this.riskFreeRate,
-            dividendYield
+            dividendYield: dividendYield
           });
           // Use call price for calendar spread (not straddle)
           frontValue = frontPricing.callPrice;
@@ -475,7 +477,7 @@ export class PayoffCalculator {
             timeToExpiration: daysToBack / 365,
             volatility: backIV,
             riskFreeRate: this.riskFreeRate,
-            dividendYield
+            dividendYield: dividendYield
           });
           // Use call price for calendar spread (not straddle)
           backValue = backPricing.callPrice;
