@@ -32,11 +32,36 @@ export interface PolygonSnapshotOption {
   last_quote?: {
     bid?: number;
     ask?: number;
+    bid_size?: number;
+    ask_size?: number;
   };
   open_interest?: number;
   day?: {
     volume?: number;
   };
+}
+
+export interface BidAskData {
+  strike: number;
+  expiration: string;
+  contractType: 'call' | 'put';
+  bid: number;
+  ask: number;
+  spread: number;
+  spreadPercent: number;
+  bidSize?: number;
+  askSize?: number;
+  midPrice: number;
+  liquidityScore: number; // 0-100 based on spread, volume, OI
+}
+
+export interface OptimalStrike {
+  strike: number;
+  stockPrice: number;
+  moneyness: number; // % from ATM
+  liquidityScore: number;
+  executionCost: number; // Expected slippage in dollars
+  recommendation: 'optimal' | 'acceptable' | 'avoid';
 }
 
 export interface PolygonOptionsResponse {
@@ -276,5 +301,215 @@ export class PolygonService {
       // If API call fails or ticker details unavailable, assume no earnings soon
       return false;
     }
+  }
+
+  /**
+   * Fetch real-time bid-ask spreads for specific strikes
+   * Essential for accurate execution cost estimation
+   */
+  async getLiveBidAskSpreads(
+    ticker: string, 
+    strikes: number[], 
+    expirations: string[]
+  ): Promise<BidAskData[]> {
+    try {
+      const bidAskData: BidAskData[] = [];
+      const url = `${POLYGON_BASE_URL}/v3/snapshot/options/${ticker}`;
+      
+      // Fetch all options data for ticker
+      const response = await axios.get<PolygonSnapshotResponse>(url, {
+        params: {
+          apiKey: this.apiKey,
+          limit: 250,
+        },
+        timeout: 30000,
+      });
+
+      const options = response.data.results || [];
+      
+      // Filter for requested strikes and expirations
+      for (const option of options) {
+        if (!option.details?.strike_price || !option.details?.expiration_date) continue;
+        
+        const strike = option.details.strike_price;
+        const expiration = option.details.expiration_date;
+        
+        if (strikes.includes(strike) && expirations.includes(expiration)) {
+          const bid = option.last_quote?.bid || 0;
+          const ask = option.last_quote?.ask || 0;
+          const spread = ask - bid;
+          const midPrice = (bid + ask) / 2;
+          const spreadPercent = midPrice > 0 ? (spread / midPrice) * 100 : 999;
+          
+          // Calculate liquidity score based on spread, volume, and OI
+          const volume = option.day?.volume || 0;
+          const oi = option.open_interest || 0;
+          
+          const liquidityScore = this.calculateLiquidityScore(
+            spreadPercent,
+            volume,
+            oi
+          );
+          
+          bidAskData.push({
+            strike,
+            expiration,
+            contractType: (option.details.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
+            bid,
+            ask,
+            spread,
+            spreadPercent,
+            bidSize: option.last_quote?.bid_size,
+            askSize: option.last_quote?.ask_size,
+            midPrice,
+            liquidityScore,
+          });
+        }
+      }
+      
+      return bidAskData;
+    } catch (error) {
+      console.error(`Failed to fetch bid-ask spreads for ${ticker}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Calculate liquidity score based on spread, volume, and open interest
+   * Returns 0-100 score (higher is better)
+   */
+  private calculateLiquidityScore(
+    spreadPercent: number, 
+    volume: number, 
+    openInterest: number
+  ): number {
+    // Spread component (0-40 points)
+    let spreadScore = 40;
+    if (spreadPercent <= 2) spreadScore = 40;
+    else if (spreadPercent <= 5) spreadScore = 30;
+    else if (spreadPercent <= 10) spreadScore = 20;
+    else if (spreadPercent <= 20) spreadScore = 10;
+    else spreadScore = 0;
+    
+    // Volume component (0-30 points)
+    let volumeScore = 0;
+    if (volume >= 1000) volumeScore = 30;
+    else if (volume >= 500) volumeScore = 25;
+    else if (volume >= 100) volumeScore = 20;
+    else if (volume >= 50) volumeScore = 15;
+    else if (volume >= 10) volumeScore = 10;
+    else if (volume > 0) volumeScore = 5;
+    
+    // Open Interest component (0-30 points)
+    let oiScore = 0;
+    if (openInterest >= 5000) oiScore = 30;
+    else if (openInterest >= 1000) oiScore = 25;
+    else if (openInterest >= 500) oiScore = 20;
+    else if (openInterest >= 100) oiScore = 15;
+    else if (openInterest >= 50) oiScore = 10;
+    else if (openInterest > 0) oiScore = 5;
+    
+    return spreadScore + volumeScore + oiScore;
+  }
+
+  /**
+   * Find optimal strikes based on market depth and liquidity
+   * Returns strikes with best execution characteristics
+   */
+  async getOptimalStrikes(
+    ticker: string,
+    stockPrice: number, 
+    options: PolygonOption[]
+  ): Promise<OptimalStrike[]> {
+    const optimalStrikes: OptimalStrike[] = [];
+    
+    // Group options by strike
+    const strikeMap = new Map<number, PolygonOption[]>();
+    for (const option of options) {
+      const strike = option.strike_price;
+      if (!strikeMap.has(strike)) {
+        strikeMap.set(strike, []);
+      }
+      strikeMap.get(strike)!.push(option);
+    }
+    
+    // Analyze each strike
+    for (const [strike, strikeOptions] of strikeMap) {
+      // Calculate moneyness (% from ATM)
+      const moneyness = ((strike - stockPrice) / stockPrice) * 100;
+      
+      // Aggregate liquidity metrics across all expirations for this strike
+      let totalVolume = 0;
+      let totalOI = 0;
+      let avgIV = 0;
+      let count = 0;
+      
+      for (const opt of strikeOptions) {
+        totalVolume += opt.day_volume || 0;
+        totalOI += opt.open_interest || 0;
+        if (opt.implied_volatility) {
+          avgIV += opt.implied_volatility;
+          count++;
+        }
+      }
+      
+      if (count > 0) avgIV /= count;
+      
+      // Estimate execution cost based on typical spreads
+      const typicalSpread = this.estimateTypicalSpread(moneyness, totalVolume, totalOI);
+      const executionCost = stockPrice * typicalSpread / 100;
+      
+      // Calculate overall liquidity score
+      const liquidityScore = this.calculateLiquidityScore(typicalSpread, totalVolume, totalOI);
+      
+      // Determine recommendation
+      let recommendation: 'optimal' | 'acceptable' | 'avoid' = 'avoid';
+      if (Math.abs(moneyness) <= 5 && liquidityScore >= 70) {
+        recommendation = 'optimal';
+      } else if (Math.abs(moneyness) <= 10 && liquidityScore >= 50) {
+        recommendation = 'acceptable';
+      }
+      
+      optimalStrikes.push({
+        strike,
+        stockPrice,
+        moneyness,
+        liquidityScore,
+        executionCost,
+        recommendation,
+      });
+    }
+    
+    // Sort by liquidity score (descending)
+    return optimalStrikes.sort((a, b) => b.liquidityScore - a.liquidityScore);
+  }
+
+  /**
+   * Estimate typical spread based on moneyness and liquidity
+   */
+  private estimateTypicalSpread(
+    moneyness: number, 
+    volume: number, 
+    openInterest: number
+  ): number {
+    // Base spread increases with distance from ATM
+    let baseSpread = 2; // 2% for ATM
+    const absMoneyness = Math.abs(moneyness);
+    
+    if (absMoneyness <= 5) baseSpread = 2;
+    else if (absMoneyness <= 10) baseSpread = 5;
+    else if (absMoneyness <= 20) baseSpread = 10;
+    else baseSpread = 20;
+    
+    // Adjust for liquidity
+    if (volume >= 1000 && openInterest >= 1000) {
+      baseSpread *= 0.7; // 30% reduction for high liquidity
+    } else if (volume >= 100 && openInterest >= 100) {
+      baseSpread *= 0.9; // 10% reduction for moderate liquidity
+    } else if (volume < 10 || openInterest < 10) {
+      baseSpread *= 1.5; // 50% increase for low liquidity
+    }
+    
+    return baseSpread;
   }
 }

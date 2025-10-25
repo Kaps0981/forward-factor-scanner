@@ -4,7 +4,9 @@ import { Link } from "wouter";
 import { type ScanResponse, type Opportunity } from "@shared/schema";
 import { ScanControls } from "@/components/ScanControls";
 import { SummaryCards } from "@/components/SummaryCards";
-import { ResultsTable } from "@/components/ResultsTable";
+import { ResultsContainer } from "@/components/ResultsContainer";
+import { PaperTradeDialog } from "@/components/PaperTradeDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScanProgress } from "@/components/ScanProgress";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -28,6 +30,9 @@ export default function Scanner() {
   const [scanResults, setScanResults] = useState<ScanResponse | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, ticker: "" });
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showPaperTradeDialog, setShowPaperTradeDialog] = useState(false);
   
   // Calculate scans remaining
   const scanLimit = user?.subscriptionTier === 'paid' ? 30 : 10;
@@ -544,9 +549,11 @@ export default function Scanner() {
             isScanning={scanMutation.isPending}
           />
 
-          <ResultsTable
+          <ResultsContainer
             opportunities={scanResults?.opportunities || []}
-            onExportCSV={handleExportCSV}
+            onViewDetails={handleViewDetails}
+            onAddToPaper={handleAddToPaper}
+            scanId={scanResults?.scan_id}
           />
         </div>
       </main>

@@ -66,6 +66,17 @@ export const opportunitySchema = z.object({
   // Stock fundamentals from Polygon API
   stock_price: z.number().optional(), // Current stock price from API
   dividend_yield: z.number().optional(), // Annual dividend yield as percentage
+  
+  // Greeks and portfolio metrics
+  delta: z.number().optional(),
+  gamma: z.number().optional(),
+  theta: z.number().optional(),
+  vega: z.number().optional(),
+  rho: z.number().optional(),
+  estimated_cost: z.number().optional(), // Total cost in dollars
+  sector: z.string().optional(), // Industry sector
+  liquidity_score_enhanced: z.number().min(0).max(100).optional(), // 0-100 liquidity rating
+  execution_cost: z.number().optional(), // Expected slippage in dollars
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;
@@ -192,6 +203,17 @@ export const opportunities = pgTable("opportunities", {
   // Stock fundamentals from Polygon API
   stock_price: doublePrecision("stock_price"),
   dividend_yield: doublePrecision("dividend_yield"),
+  
+  // Greeks and portfolio metrics
+  delta: doublePrecision("delta"),
+  gamma: doublePrecision("gamma"),
+  theta: doublePrecision("theta"),
+  vega: doublePrecision("vega"),
+  rho: doublePrecision("rho"),
+  estimated_cost: doublePrecision("estimated_cost"), // Total cost in dollars
+  sector: varchar("sector", { length: 50 }), // Industry sector
+  liquidity_score_enhanced: doublePrecision("liquidity_score_enhanced"), // 0-100 liquidity rating
+  execution_cost: doublePrecision("execution_cost"), // Expected slippage in dollars
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });
