@@ -270,6 +270,16 @@ export default function Scanner() {
       description: "Scan results with liquidity metrics downloaded successfully",
     });
   };
+  
+  const handleViewDetails = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setShowDetailsDialog(true);
+  };
+  
+  const handleAddToPaper = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setShowPaperTradeDialog(true);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
