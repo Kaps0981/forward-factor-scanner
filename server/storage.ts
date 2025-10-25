@@ -35,29 +35,29 @@ export interface IStorage {
   
   // Scan history
   createScan(scan: InsertScan): Promise<Scan>;
-  getScan(id: number): Promise<Scan | undefined>;
-  getAllScans(limit?: number): Promise<Scan[]>;
+  getScan(id: number, userId: string): Promise<Scan | undefined>;
+  getAllScans(userId: string, limit?: number): Promise<Scan[]>;
   
   // Opportunities
   createOpportunities(opps: InsertOpportunity[]): Promise<StoredOpportunity[]>;
-  getOpportunitiesByScan(scanId: number): Promise<StoredOpportunity[]>;
+  getOpportunitiesByScan(scanId: number, userId: string): Promise<StoredOpportunity[]>;
   
   // Watchlists
-  createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist>;
-  getWatchlists(): Promise<Watchlist[]>;
-  getWatchlist(id: number): Promise<Watchlist | undefined>;
-  updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>): Promise<Watchlist | undefined>;
-  deleteWatchlist(id: number): Promise<void>;
+  createWatchlist(watchlist: InsertWatchlist, userId: string): Promise<Watchlist>;
+  getWatchlists(userId: string): Promise<Watchlist[]>;
+  getWatchlist(id: number, userId: string): Promise<Watchlist | undefined>;
+  updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>, userId: string): Promise<Watchlist | undefined>;
+  deleteWatchlist(id: number, userId: string): Promise<void>;
   
   // Paper Trades
-  createPaperTrade(trade: InsertPaperTrade): Promise<PaperTrade>;
-  getPaperTrades(status?: string): Promise<PaperTrade[]>;
-  getOpenPaperTrades(): Promise<PaperTrade[]>;
-  getPaperTrade(id: number): Promise<PaperTrade | undefined>;
-  updatePaperTrade(id: number, trade: Partial<InsertPaperTrade>): Promise<PaperTrade | undefined>;
-  closePaperTrade(id: number, exitPrice: number, exitReason: string): Promise<PaperTrade | undefined>;
-  updatePaperTradeExitSignal(id: number, signal: string, reason: string): Promise<PaperTrade | undefined>;
-  deletePaperTrade(id: number): Promise<void>;
+  createPaperTrade(trade: InsertPaperTrade, userId: string): Promise<PaperTrade>;
+  getPaperTrades(userId: string, status?: string): Promise<PaperTrade[]>;
+  getOpenPaperTrades(userId: string): Promise<PaperTrade[]>;
+  getPaperTrade(id: number, userId: string): Promise<PaperTrade | undefined>;
+  updatePaperTrade(id: number, trade: Partial<InsertPaperTrade>, userId: string): Promise<PaperTrade | undefined>;
+  closePaperTrade(id: number, exitPrice: number, exitReason: string, userId: string): Promise<PaperTrade | undefined>;
+  updatePaperTradeExitSignal(id: number, signal: string, reason: string, userId: string): Promise<PaperTrade | undefined>;
+  deletePaperTrade(id: number, userId: string): Promise<void>;
   
   // Trade News Events
   createTradeNewsEvent(event: InsertTradeNewsEvent): Promise<TradeNewsEvent>;
@@ -123,7 +123,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUserScanLimit(userId: string): Promise<number> {
     const user = await this.getUser(userId);
-    if (!user) return 20; // Default for free tier
+    if (!user) return 10; // Default for free tier
     
     switch (user.subscriptionTier) {
       case 'pro':
@@ -131,7 +131,7 @@ export class DatabaseStorage implements IStorage {
       case 'enterprise':
         return -1; // Unlimited
       default:
-        return 20; // Free tier
+        return 10; // Free tier
     }
   }
 
@@ -157,13 +157,17 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getScan(id: number): Promise<Scan | undefined> {
-    const [result] = await db.select().from(scans).where(eq(scans.id, id));
+  async getScan(id: number, userId: string): Promise<Scan | undefined> {
+    const [result] = await db.select().from(scans)
+      .where(and(eq(scans.id, id), eq(scans.userId, userId)));
     return result;
   }
 
-  async getAllScans(limit: number = 50): Promise<Scan[]> {
-    return db.select().from(scans).orderBy(desc(scans.timestamp)).limit(limit);
+  async getAllScans(userId: string, limit: number = 50): Promise<Scan[]> {
+    return db.select().from(scans)
+      .where(eq(scans.userId, userId))
+      .orderBy(desc(scans.timestamp))
+      .limit(limit);
   }
 
   // Opportunities methods
@@ -172,76 +176,85 @@ export class DatabaseStorage implements IStorage {
     return db.insert(opportunities).values(opps).returning();
   }
 
-  async getOpportunitiesByScan(scanId: number): Promise<StoredOpportunity[]> {
-    return db.select().from(opportunities).where(eq(opportunities.scan_id, scanId));
+  async getOpportunitiesByScan(scanId: number, userId: string): Promise<StoredOpportunity[]> {
+    return db.select().from(opportunities)
+      .where(and(eq(opportunities.scan_id, scanId), eq(opportunities.userId, userId)));
   }
 
   // Watchlist methods
-  async createWatchlist(watchlist: InsertWatchlist): Promise<Watchlist> {
-    const [result] = await db.insert(watchlists).values(watchlist).returning();
+  async createWatchlist(watchlist: InsertWatchlist, userId: string): Promise<Watchlist> {
+    const watchlistWithUser = { ...watchlist, userId };
+    const [result] = await db.insert(watchlists).values(watchlistWithUser).returning();
     return result;
   }
 
-  async getWatchlists(): Promise<Watchlist[]> {
-    return db.select().from(watchlists).orderBy(desc(watchlists.created_at));
+  async getWatchlists(userId: string): Promise<Watchlist[]> {
+    return db.select().from(watchlists)
+      .where(eq(watchlists.userId, userId))
+      .orderBy(desc(watchlists.created_at));
   }
 
-  async getWatchlist(id: number): Promise<Watchlist | undefined> {
-    const [result] = await db.select().from(watchlists).where(eq(watchlists.id, id));
+  async getWatchlist(id: number, userId: string): Promise<Watchlist | undefined> {
+    const [result] = await db.select().from(watchlists)
+      .where(and(eq(watchlists.id, id), eq(watchlists.userId, userId)));
     return result;
   }
 
-  async updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>): Promise<Watchlist | undefined> {
+  async updateWatchlist(id: number, watchlist: Partial<InsertWatchlist>, userId: string): Promise<Watchlist | undefined> {
     const [result] = await db
       .update(watchlists)
       .set(watchlist)
-      .where(eq(watchlists.id, id))
+      .where(and(eq(watchlists.id, id), eq(watchlists.userId, userId)))
       .returning();
     return result;
   }
 
-  async deleteWatchlist(id: number): Promise<void> {
-    await db.delete(watchlists).where(eq(watchlists.id, id));
+  async deleteWatchlist(id: number, userId: string): Promise<void> {
+    await db.delete(watchlists)
+      .where(and(eq(watchlists.id, id), eq(watchlists.userId, userId)));
   }
   
   // Paper Trade methods
-  async createPaperTrade(trade: InsertPaperTrade): Promise<PaperTrade> {
-    const [result] = await db.insert(paperTrades).values(trade).returning();
+  async createPaperTrade(trade: InsertPaperTrade, userId: string): Promise<PaperTrade> {
+    const tradeWithUser = { ...trade, userId };
+    const [result] = await db.insert(paperTrades).values(tradeWithUser).returning();
     return result;
   }
   
-  async getPaperTrades(status?: string): Promise<PaperTrade[]> {
+  async getPaperTrades(userId: string, status?: string): Promise<PaperTrade[]> {
     if (status) {
       return db.select().from(paperTrades)
-        .where(eq(paperTrades.status, status))
+        .where(and(eq(paperTrades.userId, userId), eq(paperTrades.status, status)))
         .orderBy(desc(paperTrades.entry_date));
     }
     return db.select().from(paperTrades)
+      .where(eq(paperTrades.userId, userId))
       .orderBy(desc(paperTrades.entry_date));
   }
   
-  async getOpenPaperTrades(): Promise<PaperTrade[]> {
+  async getOpenPaperTrades(userId: string): Promise<PaperTrade[]> {
     return db.select().from(paperTrades)
-      .where(eq(paperTrades.status, 'OPEN'))
+      .where(and(eq(paperTrades.userId, userId), eq(paperTrades.status, 'OPEN')))
       .orderBy(desc(paperTrades.entry_date));
   }
   
-  async getPaperTrade(id: number): Promise<PaperTrade | undefined> {
-    const [result] = await db.select().from(paperTrades).where(eq(paperTrades.id, id));
+  async getPaperTrade(id: number, userId: string): Promise<PaperTrade | undefined> {
+    const [result] = await db.select().from(paperTrades)
+      .where(and(eq(paperTrades.id, id), eq(paperTrades.userId, userId)));
     return result;
   }
   
-  async updatePaperTrade(id: number, trade: Partial<InsertPaperTrade>): Promise<PaperTrade | undefined> {
+  async updatePaperTrade(id: number, trade: Partial<InsertPaperTrade>, userId: string): Promise<PaperTrade | undefined> {
     const [result] = await db
       .update(paperTrades)
       .set(trade)
-      .where(eq(paperTrades.id, id))
+      .where(and(eq(paperTrades.id, id), eq(paperTrades.userId, userId)))
       .returning();
     return result;
   }
   
-  async closePaperTrade(id: number, exitPrice: number, exitReason: string): Promise<PaperTrade | undefined> {
-    const trade = await this.getPaperTrade(id);
+  async closePaperTrade(id: number, exitPrice: number, exitReason: string, userId: string): Promise<PaperTrade | undefined> {
+    const trade = await this.getPaperTrade(id, userId);
     if (!trade) return undefined;
     
     // Multiply by 100 for options contract multiplier (100 shares per contract)
@@ -259,25 +272,26 @@ export class DatabaseStorage implements IStorage {
         realized_pnl_percent: realizedPnlPercent,
         exit_reason: exitReason
       })
-      .where(eq(paperTrades.id, id))
+      .where(and(eq(paperTrades.id, id), eq(paperTrades.userId, userId)))
       .returning();
     return result;
   }
   
-  async updatePaperTradeExitSignal(id: number, signal: string, reason: string): Promise<PaperTrade | undefined> {
+  async updatePaperTradeExitSignal(id: number, signal: string, reason: string, userId: string): Promise<PaperTrade | undefined> {
     const [result] = await db
       .update(paperTrades)
       .set({
         exit_signal: signal,
         exit_signal_reason: reason
       })
-      .where(eq(paperTrades.id, id))
+      .where(and(eq(paperTrades.id, id), eq(paperTrades.userId, userId)))
       .returning();
     return result;
   }
   
-  async deletePaperTrade(id: number): Promise<void> {
-    await db.delete(paperTrades).where(eq(paperTrades.id, id));
+  async deletePaperTrade(id: number, userId: string): Promise<void> {
+    await db.delete(paperTrades)
+      .where(and(eq(paperTrades.id, id), eq(paperTrades.userId, userId)));
   }
   
   // Trade News Event methods

@@ -1,4 +1,5 @@
 import { Activity, TrendingUp, Shield, Brain, Clock, BarChart3, ChevronRight, Github, Mail, Chrome } from "lucide-react";
+import { SiX, SiApple } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,29 +49,61 @@ export default function Landing() {
             FFQuant implements the Forward Factor strategy from institutional research, 
             scanning options markets to identify statistically significant volatility arbitrage opportunities.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={handleLogin}
-              className="gap-2"
-              data-testid="button-signin-hero"
-            >
-              <Chrome className="h-5 w-5" />
-              Sign In with Google
-            </Button>
+          <div className="space-y-4 max-w-md mx-auto">
+            <p className="text-sm font-medium text-foreground mb-2">
+              Choose your preferred sign-in method:
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                size="lg" 
+                onClick={handleLogin}
+                className="gap-2"
+                data-testid="button-signin-google"
+              >
+                <Chrome className="h-5 w-5" />
+                Google
+              </Button>
+              <Button 
+                size="lg" 
+                onClick={handleLogin}
+                className="gap-2"
+                data-testid="button-signin-github"
+              >
+                <Github className="h-5 w-5" />
+                GitHub
+              </Button>
+              <Button 
+                size="lg" 
+                onClick={handleLogin}
+                className="gap-2"
+                data-testid="button-signin-x"
+              >
+                <SiX className="h-4 w-4" />
+                X (Twitter)
+              </Button>
+              <Button 
+                size="lg" 
+                onClick={handleLogin}
+                className="gap-2"
+                data-testid="button-signin-apple"
+              >
+                <SiApple className="h-5 w-5" />
+                Apple
+              </Button>
+            </div>
             <Button 
               size="lg" 
               onClick={handleLogin}
               variant="outline"
-              className="gap-2"
-              data-testid="button-signin-github"
+              className="gap-2 w-full"
+              data-testid="button-signin-email"
             >
-              <Github className="h-5 w-5" />
-              Sign In with GitHub
+              <Mail className="h-5 w-5" />
+              Sign In with Email
             </Button>
           </div>
           <p className="text-sm text-muted-foreground mt-4">
-            Free tier includes 20 scans per month
+            Free tier includes 10 scans per month • All login methods supported
           </p>
         </div>
       </section>
@@ -235,12 +268,12 @@ export default function Landing() {
               className="gap-2"
               data-testid="button-signin-cta"
             >
-              Get Started with 20 Free Scans
+              Get Started with 10 Free Scans
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
           <p className="text-sm text-muted-foreground mt-6">
-            No credit card required • Sign in with Google or GitHub
+            No credit card required • Sign in with Google, GitHub, X, Apple, or Email
           </p>
         </div>
       </section>

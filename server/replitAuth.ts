@@ -84,8 +84,24 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
+  // Register strategies for Replit domains
   for (const domain of process.env
     .REPLIT_DOMAINS!.split(",")) {
+    const strategy = new Strategy(
+      {
+        name: `replitauth:${domain}`,
+        config,
+        scope: "openid email profile offline_access",
+        callbackURL: `https://${domain}/api/callback`,
+      },
+      verify,
+    );
+    passport.use(strategy);
+  }
+
+  // Also register strategies for custom domains
+  const customDomains = ['ffquant.pro', 'www.ffquant.pro'];
+  for (const domain of customDomains) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -102,14 +118,40 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = `replitauth:${req.hostname}`;
+    
+    // List of known strategies (Replit domains + custom domains)
+    const knownStrategies = [
+      ...process.env.REPLIT_DOMAINS!.split(",").map(d => `replitauth:${d}`),
+      ...customDomains.map(d => `replitauth:${d}`)
+    ];
+    
+    // Use the hostname strategy if it exists, otherwise use the first Replit domain
+    const strategyToUse = knownStrategies.includes(strategyName) 
+      ? strategyName 
+      : `replitauth:${process.env.REPLIT_DOMAINS!.split(",")[0]}`;
+    
+    passport.authenticate(strategyToUse, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
+    const strategyName = `replitauth:${req.hostname}`;
+    
+    // List of known strategies (Replit domains + custom domains)
+    const knownStrategies = [
+      ...process.env.REPLIT_DOMAINS!.split(",").map(d => `replitauth:${d}`),
+      ...customDomains.map(d => `replitauth:${d}`)
+    ];
+    
+    // Use the hostname strategy if it exists, otherwise use the first Replit domain
+    const strategyToUse = knownStrategies.includes(strategyName) 
+      ? strategyName 
+      : `replitauth:${process.env.REPLIT_DOMAINS!.split(",")[0]}`;
+    
+    passport.authenticate(strategyToUse, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
     })(req, res, next);

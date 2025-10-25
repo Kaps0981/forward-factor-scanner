@@ -161,9 +161,9 @@ function UserMenu() {
           data-testid="button-user-menu"
         >
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.profileImage} alt={user.username} />
+            <AvatarImage src={user.profileImageUrl || undefined} alt={user.firstName || user.email || undefined} />
             <AvatarFallback>
-              {user.username?.charAt(0)?.toUpperCase() || "U"}
+              {user.firstName?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
         </Button>
@@ -171,15 +171,15 @@ function UserMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <div className="flex items-center gap-2 p-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user.profileImage} alt={user.username} />
+            <AvatarImage src={user.profileImageUrl || undefined} alt={user.firstName || user.email || undefined} />
             <AvatarFallback>
-              {user.username?.charAt(0)?.toUpperCase() || "U"}
+              {user.firstName?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col flex-1">
-            <p className="text-sm font-medium truncate">{user.username}</p>
+            <p className="text-sm font-medium truncate">{user.firstName || user.email}</p>
             <p className="text-xs text-muted-foreground">
-              {user.scansThisMonth || 0} / {user.subscriptionTier === 'paid' ? '30' : '20'} scans
+              {user.scansThisMonth || 0} / {user.subscriptionTier === 'paid' ? '30' : '10'} scans
             </p>
           </div>
         </div>

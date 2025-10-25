@@ -30,7 +30,7 @@ export default function Scanner() {
   const [eventsExpanded, setEventsExpanded] = useState(false);
   
   // Calculate scans remaining
-  const scanLimit = user?.subscriptionTier === 'paid' ? 30 : 20;
+  const scanLimit = user?.subscriptionTier === 'paid' ? 30 : 10;
   const scansUsed = user?.scansThisMonth || 0;
   const scansRemaining = Math.max(0, scanLimit - scansUsed);
   const hasReachedLimit = scansRemaining === 0;

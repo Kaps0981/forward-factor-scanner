@@ -82,10 +82,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Scan history endpoints
-  app.get("/api/scans", async (req, res) => {
+  app.get("/api/scans", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const scans = await storage.getAllScans(limit);
+      const scans = await storage.getAllScans(userId, limit);
       res.json({ scans });
     } catch (error) {
       console.error("Error fetching scans:", error);
@@ -95,16 +96,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/scans/:id", async (req, res) => {
+  app.get("/api/scans/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const scanId = parseInt(req.params.id);
-      const scan = await storage.getScan(scanId);
+      const scan = await storage.getScan(scanId, userId);
       
       if (!scan) {
         return res.status(404).json({ error: "Scan not found" });
       }
 
-      const opportunities = await storage.getOpportunitiesByScan(scanId);
+      const opportunities = await storage.getOpportunitiesByScan(scanId, userId);
       
       res.json({
         scan,
@@ -119,9 +121,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Watchlist endpoints
-  app.get("/api/watchlists", async (req, res) => {
+  app.get("/api/watchlists", isAuthenticated, async (req: any, res) => {
     try {
-      const watchlists = await storage.getWatchlists();
+      const userId = req.user.claims.sub;
+      const watchlists = await storage.getWatchlists(userId);
       res.json({ watchlists });
     } catch (error) {
       console.error("Error fetching watchlists:", error);
@@ -131,8 +134,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/watchlists", async (req, res) => {
+  app.post("/api/watchlists", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const validationResult = insertWatchlistSchema.safeParse(req.body);
       if (!validationResult.success) {
         return res.status(400).json({
@@ -141,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const watchlist = await storage.createWatchlist(validationResult.data);
+      const watchlist = await storage.createWatchlist(validationResult.data, userId);
       res.json({ watchlist });
     } catch (error) {
       console.error("Error creating watchlist:", error);
@@ -151,8 +155,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/watchlists/:id", async (req, res) => {
+  app.patch("/api/watchlists/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       const validationResult = insertWatchlistSchema.partial().safeParse(req.body);
@@ -163,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const watchlist = await storage.updateWatchlist(id, validationResult.data);
+      const watchlist = await storage.updateWatchlist(id, validationResult.data, userId);
       
       if (!watchlist) {
         return res.status(404).json({ error: "Watchlist not found" });
@@ -178,10 +183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/watchlists/:id", async (req, res) => {
+  app.delete("/api/watchlists/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
-      await storage.deleteWatchlist(id);
+      await storage.deleteWatchlist(id, userId);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting watchlist:", error);
@@ -277,10 +283,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // 1. GET /api/paper-trades - Get all paper trades with optional status filter
-  app.get("/api/paper-trades", async (req, res) => {
+  app.get("/api/paper-trades", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const status = req.query.status as string | undefined;
-      const trades = await storage.getPaperTrades(status);
+      const trades = await storage.getPaperTrades(userId, status);
       
       // Calculate exit signals for open trades
       const tradesWithSignals = trades.map(trade => {
@@ -305,9 +312,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 2. GET /api/paper-trades/open - Get only open positions
-  app.get("/api/paper-trades/open", async (req, res) => {
+  app.get("/api/paper-trades/open", isAuthenticated, async (req: any, res) => {
     try {
-      const trades = await storage.getOpenPaperTrades();
+      const userId = req.user.claims.sub;
+      const trades = await storage.getOpenPaperTrades(userId);
       
       // Calculate and add exit signals
       const tradesWithSignals = trades.map(trade => {
@@ -329,10 +337,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 3. GET /api/paper-trades/:id - Get specific trade details
-  app.get("/api/paper-trades/:id", async (req, res) => {
+  app.get("/api/paper-trades/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
-      const trade = await storage.getPaperTrade(id);
+      const trade = await storage.getPaperTrade(id, userId);
       
       if (!trade) {
         return res.status(404).json({ error: "Paper trade not found" });
@@ -360,7 +369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 4. POST /api/paper-trades - Create new paper trade from opportunity
-  app.post("/api/paper-trades", async (req, res) => {
+  app.post("/api/paper-trades", isAuthenticated, async (req: any, res) => {
     try {
       const validationResult = createPaperTradeSchema.safeParse(req.body);
       if (!validationResult.success) {
@@ -442,6 +451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("==================");
       
       // Create paper trade with calculated values
+      const userId = req.user.claims.sub;
       const paperTrade = await storage.createPaperTrade({
         ticker: opportunity.ticker,
         signal: opportunity.signal,
@@ -471,7 +481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         original_scan_id: null,
         days_to_front_expiry: daysToFrontExpiry,
         theta_decay: 0,
-      });
+      }, userId);
       
       // Calculate initial exit signal
       const exitSignal = calculateExitSignal(paperTrade);
@@ -480,7 +490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedTrade = await storage.updatePaperTrade(paperTrade.id, {
         exit_signal: exitSignal.signal,
         exit_signal_reason: exitSignal.reason
-      });
+      }, userId);
       
       res.json({ 
         success: true,
@@ -495,8 +505,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 5. PATCH /api/paper-trades/:id - Update trade (current prices, P&L, exit signals)
-  app.patch("/api/paper-trades/:id", async (req, res) => {
+  app.patch("/api/paper-trades/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       const validationResult = updatePaperTradeSchema.safeParse(req.body);
@@ -509,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update days to expiry if not provided
       if (!validationResult.data.days_to_front_expiry) {
-        const trade = await storage.getPaperTrade(id);
+        const trade = await storage.getPaperTrade(id, userId);
         if (trade && trade.front_expiry) {
           const frontExpiryDate = new Date(trade.front_expiry);
           const daysToFrontExpiry = Math.floor((frontExpiryDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
@@ -517,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updatedTrade = await storage.updatePaperTrade(id, validationResult.data);
+      const updatedTrade = await storage.updatePaperTrade(id, validationResult.data, userId);
       
       if (!updatedTrade) {
         return res.status(404).json({ error: "Paper trade not found" });
@@ -526,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Recalculate exit signal if trade is still open
       if (updatedTrade.status === 'OPEN') {
         const exitSignal = calculateExitSignal(updatedTrade);
-        const tradeWithSignal = await storage.updatePaperTradeExitSignal(id, exitSignal.signal, exitSignal.reason);
+        const tradeWithSignal = await storage.updatePaperTradeExitSignal(id, exitSignal.signal, exitSignal.reason, userId);
         return res.json({ trade: tradeWithSignal || updatedTrade });
       }
       
@@ -540,8 +551,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 6. POST /api/paper-trades/:id/close - Close a trade
-  app.post("/api/paper-trades/:id/close", async (req, res) => {
+  app.post("/api/paper-trades/:id/close", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       const validationResult = closePaperTradeSchema.safeParse(req.body);
@@ -554,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { exit_price, exit_reason } = validationResult.data;
       
-      const closedTrade = await storage.closePaperTrade(id, exit_price, exit_reason);
+      const closedTrade = await storage.closePaperTrade(id, exit_price, exit_reason, userId);
       
       if (!closedTrade) {
         return res.status(404).json({ error: "Paper trade not found" });
@@ -576,12 +588,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 6.5 PATCH /api/paper-trades/:id/prices - Update trade prices
-  app.patch("/api/paper-trades/:id/prices", async (req, res) => {
+  app.patch("/api/paper-trades/:id/prices", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       // Get the existing trade first
-      const existingTrade = await storage.getPaperTrade(id);
+      const existingTrade = await storage.getPaperTrade(id, userId);
       if (!existingTrade) {
         return res.status(404).json({ error: "Paper trade not found" });
       }
@@ -681,7 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Final update data:", updateData);
       
-      const updatedTrade = await storage.updatePaperTrade(id, updateData);
+      const updatedTrade = await storage.updatePaperTrade(id, updateData, userId);
       
       if (!updatedTrade) {
         return res.status(404).json({ error: "Failed to update trade" });
@@ -706,8 +719,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 7. POST /api/paper-trades/:id/update-signal - Update exit timing signal
-  app.post("/api/paper-trades/:id/update-signal", async (req, res) => {
+  app.post("/api/paper-trades/:id/update-signal", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       const validationResult = updateExitSignalSchema.safeParse(req.body);
@@ -720,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { signal, reason } = validationResult.data;
       
-      const updatedTrade = await storage.updatePaperTradeExitSignal(id, signal, reason);
+      const updatedTrade = await storage.updatePaperTradeExitSignal(id, signal, reason, userId);
       
       if (!updatedTrade) {
         return res.status(404).json({ error: "Paper trade not found" });
@@ -739,18 +753,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 8. DELETE /api/paper-trades/:id - Delete a paper trade
-  app.delete("/api/paper-trades/:id", async (req, res) => {
+  app.delete("/api/paper-trades/:id", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       // Check if trade exists
-      const trade = await storage.getPaperTrade(id);
+      const trade = await storage.getPaperTrade(id, userId);
       if (!trade) {
         return res.status(404).json({ error: "Paper trade not found" });
       }
       
       // Delete the trade
-      await storage.deletePaperTrade(id);
+      await storage.deletePaperTrade(id, userId);
       
       // Recalculate portfolio metrics after deletion
       await storage.calculatePortfolioMetrics();
@@ -765,12 +780,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 9. GET /api/paper-trades/:id/news - Get news events and analysis for a trade
-  app.get("/api/paper-trades/:id/news", async (req, res) => {
+  app.get("/api/paper-trades/:id/news", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       
       // Get the trade details
-      const trade = await storage.getPaperTrade(id);
+      const trade = await storage.getPaperTrade(id, userId);
       if (!trade) {
         return res.status(404).json({ error: "Paper trade not found" });
       }
@@ -823,7 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 9. GET /api/portfolio-summary - Get overall portfolio P&L summary
-  app.get("/api/portfolio-summary", async (req, res) => {
+  app.get("/api/portfolio-summary", isAuthenticated, async (req: any, res) => {
     try {
       const summary = await storage.getPortfolioSummary();
       
@@ -843,9 +859,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // 10. POST /api/paper-trades/update-all-prices - Update current prices for all open trades
-  app.post("/api/paper-trades/update-all-prices", async (req, res) => {
+  app.post("/api/paper-trades/update-all-prices", isAuthenticated, async (req: any, res) => {
     try {
-      const openTrades = await storage.getOpenPaperTrades();
+      const userId = req.user.claims.sub;
+      const openTrades = await storage.getOpenPaperTrades(userId);
       
       if (openTrades.length === 0) {
         return res.json({ 

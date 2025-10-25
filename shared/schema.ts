@@ -115,6 +115,7 @@ export type DefaultTickersResponse = z.infer<typeof defaultTickersResponseSchema
 // Scans table - stores historical scan metadata
 export const scans = pgTable("scans", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   tickers_scanned: integer("tickers_scanned").notNull(),
   total_opportunities: integer("total_opportunities").notNull(),
@@ -131,6 +132,7 @@ export type Scan = typeof scans.$inferSelect;
 // Opportunities table - stores individual opportunity results from scans
 export const opportunities = pgTable("opportunities", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
   scan_id: integer("scan_id").notNull(),
   ticker: varchar("ticker", { length: 10 }).notNull(),
   forward_factor: doublePrecision("forward_factor").notNull(),
@@ -193,6 +195,7 @@ export type StoredOpportunity = typeof opportunities.$inferSelect;
 // Watchlists table - stores user's saved ticker watchlists
 export const watchlists = pgTable("watchlists", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
   name: varchar("name", { length: 100 }).notNull(),
   tickers: jsonb("tickers").notNull(), // Array of ticker strings
   created_at: timestamp("created_at").defaultNow().notNull(),
@@ -221,6 +224,7 @@ export type Watchlist = typeof watchlists.$inferSelect;
 // Paper Trades table - stores simulated trades
 export const paperTrades = pgTable("paper_trades", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
   ticker: varchar("ticker", { length: 10 }).notNull(),
   signal: varchar("signal", { length: 4 }).notNull(), // 'BUY' or 'SELL'
   entry_date: timestamp("entry_date").defaultNow().notNull(),
