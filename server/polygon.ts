@@ -130,6 +130,32 @@ export class PolygonService {
 
   async getLastQuote(ticker: string): Promise<number> {
     try {
+      // Use snapshot endpoint for Stocks plan - more reliable and comprehensive
+      const snapshotUrl = `${POLYGON_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`;
+      
+      try {
+        const snapshotResponse = await axios.get(snapshotUrl, {
+          params: {
+            apiKey: this.apiKey,
+          },
+          timeout: 10000,
+        });
+        
+        // Get price from snapshot (uses day close or previous close)
+        const snapshot = snapshotResponse.data.ticker;
+        if (snapshot) {
+          const price = snapshot.day?.c || snapshot.prevDay?.c || snapshot.day?.o || snapshot.prevDay?.o;
+          if (price) {
+            console.log(`Got stock price for ${ticker} from snapshot: $${price.toFixed(2)}`);
+            return price;
+          }
+        }
+      } catch (snapshotError) {
+        // Fall back to last trade endpoint if snapshot fails
+        console.log(`Snapshot failed for ${ticker}, trying last trade endpoint`);
+      }
+      
+      // Fallback to last trade endpoint
       const url = `${POLYGON_BASE_URL}/v2/last/trade/${ticker}`;
       const response = await axios.get(url, {
         params: {
@@ -139,17 +165,51 @@ export class PolygonService {
       });
 
       const price = response.data.results?.p || response.data.results?.price;
-      if (!price) {
-        console.warn(`No price data in Polygon response for ${ticker}:`, response.data);
+      if (price) {
+        console.log(`Got stock price for ${ticker} from last trade: $${price.toFixed(2)}`);
+        return price;
       }
-      return price || 0;
+      
+      console.warn(`No price data available for ${ticker}`);
+      return 0;
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error(`Failed to fetch last quote for ${ticker}: ${error.response?.status} - ${error.response?.data?.status || error.message}`);
+        console.error(`Failed to fetch stock price for ${ticker}: ${error.response?.status} - ${error.response?.data?.status || error.message}`);
       } else {
-        console.error(`Failed to fetch last quote for ${ticker}:`, error);
+        console.error(`Failed to fetch stock price for ${ticker}:`, error);
       }
       return 0;
+    }
+  }
+
+  async getPreviousClose(ticker: string): Promise<{ price: number; change: number; changePercent: number } | null> {
+    try {
+      const url = `${POLYGON_BASE_URL}/v2/aggs/ticker/${ticker}/prev`;
+      const response = await axios.get(url, {
+        params: {
+          apiKey: this.apiKey,
+          adjusted: true,
+        },
+        timeout: 10000,
+      });
+
+      const result = response.data.results?.[0];
+      if (result) {
+        const currentPrice = await this.getLastQuote(ticker);
+        const prevClose = result.c;
+        const change = currentPrice - prevClose;
+        const changePercent = (change / prevClose) * 100;
+        
+        return {
+          price: prevClose,
+          change: change,
+          changePercent: changePercent
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to fetch previous close for ${ticker}:`, error);
+      return null;
     }
   }
 
