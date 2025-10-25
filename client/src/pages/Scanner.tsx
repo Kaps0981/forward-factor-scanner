@@ -69,7 +69,7 @@ export default function Scanner() {
       ffCalculationMode?: 'raw' | 'ex-earnings';
     }) => {
       const tickersToScan = params.tickers || [];
-      const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 100) : 100;
+      const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 50) : 50;
       
       setScanProgress({ 
         current: 0, 
@@ -318,6 +318,24 @@ export default function Scanner() {
                 </div>
               </CardContent>
             )}
+          </Card>
+
+          {/* Investment Disclaimer */}
+          <Card className="border-yellow-500/20 bg-yellow-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm text-foreground">Important Disclaimer</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This tool is for educational and informational purposes only. It is <strong>not investment advice</strong>. 
+                    All trading involves substantial risk of loss. Forward Factor analysis is a research concept and does not guarantee profits. 
+                    You should conduct your own thorough research and consult with a qualified financial advisor before making any investment decisions. 
+                    Past performance does not indicate future results.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
           {/* Upcoming Events Card */}

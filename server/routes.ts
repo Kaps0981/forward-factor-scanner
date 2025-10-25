@@ -1089,10 +1089,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const eventsService = new FinancialEventsService(POLYGON_API_KEY);
       
       const opportunities = await scanner.scanMultiple(
-        tickersToScan.slice(0, 100),
+        tickersToScan.slice(0, 50),
         minFF,
         maxFF,
-        dte_strategy || '30-90',
+        dte_strategy || '30-60',
         ff_calculation_mode || 'raw',
         (current, total, ticker) => {
           console.log(`Scanning progress: ${ticker} (${current}/${total})`);
@@ -1200,12 +1200,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save scan to database
       const scan = await storage.createScan({
         userId,
-        tickers_scanned: Math.min(tickersToScan.length, 100),
+        tickers_scanned: Math.min(tickersToScan.length, 50),
         total_opportunities: limitedOpportunities.length,
         min_ff: minFF,
         max_ff: maxFF,
         top_n: topN,
-        tickers_list: tickersToScan.slice(0, 100),
+        tickers_list: tickersToScan.slice(0, 50),
       });
 
       // Save opportunities to database

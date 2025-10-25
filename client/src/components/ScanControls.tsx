@@ -42,7 +42,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [minMarketCap, setMinMarketCap] = useState(2);
   const [maxMarketCap, setMaxMarketCap] = useState(15);
   const [strategyType, setStrategyType] = useState<"all" | "30-90" | "60-90">("all");
-  const [dteStrategy, setDTEStrategy] = useState<'30-90' | '30-60' | '60-90' | 'all'>('30-90');
+  const [dteStrategy, setDTEStrategy] = useState<'30-90' | '30-60' | '60-90' | 'all'>('30-60');
   const [ffCalculationMode, setFFCalculationMode] = useState<'raw' | 'ex-earnings'>('raw');
   const [ffFilterMode, setFFFilterMode] = useState<'aggressive' | 'moderate' | 'balanced' | 'minimal' | 'none'>('moderate');
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
@@ -116,7 +116,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               
               <TabsContent value="default" className="mt-0">
                 <p className="text-sm text-muted-foreground">
-                  Scan 100 curated quality mid-cap stocks across multiple sectors
+                  Scan 50 curated quality mid-cap stocks across multiple sectors
                 </p>
               </TabsContent>
               
@@ -133,7 +133,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   data-testid="input-custom-tickers"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Maximum 100 tickers per scan
+                  Maximum 50 tickers per scan
                 </p>
               </TabsContent>
               
@@ -252,8 +252,8 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   <SelectValue placeholder="Select DTE strategy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30-90">30-90 Days (2.64 Sharpe) ⭐ Recommended</SelectItem>
-                  <SelectItem value="30-60">30-60 Days (2.37 Sharpe)</SelectItem>
+                  <SelectItem value="30-90">30-90 Days (2.64 Sharpe)</SelectItem>
+                  <SelectItem value="30-60">30-60 Days (2.37 Sharpe) ⭐ Recommended</SelectItem>
                   <SelectItem value="60-90">60-90 Days (2.40 Sharpe, Highest Returns)</SelectItem>
                   <SelectItem value="all">All DTEs (Unfiltered)</SelectItem>
                 </SelectContent>

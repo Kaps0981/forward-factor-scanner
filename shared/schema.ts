@@ -77,7 +77,7 @@ export const scanRequestSchema = z.object({
   enable_email_alerts: z.boolean().optional(),
   strategy_type: z.enum(['30-90', '60-90']).optional(), // Strategy selection for quality filters
   max_monthly_trades: z.number().min(1).max(100).default(20).optional(), // Limit trades per month (default: 20 based on research)
-  dte_strategy: z.enum(['30-90', '30-60', '60-90', 'all']).optional().default('30-90'),
+  dte_strategy: z.enum(['30-90', '30-60', '60-90', 'all']).optional().default('30-60'),
   ff_calculation_mode: z.enum(['raw', 'ex-earnings']).optional().default('raw'),
 });
 
