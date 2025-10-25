@@ -954,7 +954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         const analysis = analyzeOpportunityQuality(opp);
-        const positionSize = calculatePositionSize(opp);
+        // Removed calculatePositionSize - using kelly_sizing_recommendation instead
         const warnings = generateExecutionWarnings(opp);
         
         return {
@@ -964,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           probability: analysis.probability,
           risk_reward: analysis.riskReward,
           rejection_reasons: analysis.rejectionReasons,
-          position_size_recommendation: positionSize,
+          // Position sizing handled by kelly_sizing_recommendation from quality filters
           execution_warnings: warnings,
         };
       });
@@ -1008,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts } = validationResult.data;
+      const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts, strategy_type, max_monthly_trades } = validationResult.data;
       
       // Check if we should use market cap filtering
       const useMarketCap = req.body.use_market_cap === true;
@@ -1047,14 +1047,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      // Filter by liquidity if requested (prefer straddle_oi over avg_open_interest)
+      // Apply quality filters with strategy type (this also handles liquidity filtering)
+      const qualityFilteredOpportunities = scanner.applyQualityFilters(opportunities, strategy_type);
+      
+      // Additional filtering by min_open_interest if specified (backward compatibility)
       const filteredOpportunities = minOI > 0 
-        ? opportunities.filter(opp => {
+        ? qualityFilteredOpportunities.filter(opp => {
             // Use straddle_oi if available, fallback to avg_open_interest
             const oi = opp.straddle_oi !== undefined ? opp.straddle_oi : (opp.avg_open_interest || 0);
             return oi >= minOI;
           })
-        : opportunities;
+        : qualityFilteredOpportunities;
 
       // Check for earnings in parallel (batch unique tickers)
       const uniqueTickers = Array.from(new Set(filteredOpportunities.map(opp => opp.ticker)));
@@ -1079,7 +1082,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Add earnings flag, quality analysis, position sizing, and warnings to opportunities
+      // Add earnings flag and other analysis to opportunities
       const opportunitiesWithAnalysis = opportunitiesWithEvents.map(opp => {
         const oppWithEarnings = {
           ...opp,
@@ -1088,23 +1091,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           earnings_date: opp.earnings_date === null ? undefined : opp.earnings_date,
         };
         
-        // Run quality analysis
+        // Run additional quality analysis (for probability and risk/reward)
         const analysis = analyzeOpportunityQuality(oppWithEarnings);
-        
-        // Calculate position size recommendation
-        const positionSize = calculatePositionSize(oppWithEarnings);
         
         // Generate execution warnings
         const warnings = generateExecutionWarnings(oppWithEarnings);
         
+        // Merge with quality filter results (quality_score from applyQualityFilters takes precedence)
         return {
           ...oppWithEarnings,
-          quality_score: analysis.rating,
-          is_quality: analysis.isQuality,
+          // Keep the quality_score from applyQualityFilters, only add missing fields
           probability: analysis.probability,
           risk_reward: analysis.riskReward,
-          rejection_reasons: analysis.rejectionReasons,
-          position_size_recommendation: positionSize,
+          rejection_reasons: opp.quality_score === 0 ? ['Below minimum |FF| threshold'] : analysis.rejectionReasons,
+          // Use kelly_sizing_recommendation instead of numeric position size
+          // kelly_sizing_recommendation already contains "Quarter Kelly", "Half Kelly", or "Minimum position"
           execution_warnings: warnings,
         };
       });
@@ -1117,13 +1118,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         // Then by quality score
         if (a.quality_score !== b.quality_score) {
-          return b.quality_score - a.quality_score;
+          return (b.quality_score ?? 0) - (a.quality_score ?? 0);
         }
         // Finally by |FF|
         return Math.abs(b.forward_factor) - Math.abs(a.forward_factor);
       });
 
-      const limitedOpportunities = sortedOpportunities.slice(0, topN);
+      // Apply monthly trade frequency limit (~20 trades/month based on research)
+      // This limits the number of opportunities to manage risk and focus on highest quality setups
+      const monthlyLimit = max_monthly_trades || 20;
+      const frequencyLimitedOpportunities = sortedOpportunities.slice(0, monthlyLimit);
+
+      const limitedOpportunities = frequencyLimitedOpportunities.slice(0, topN);
 
       // Save scan to database
       const scan = await storage.createScan({
@@ -1174,8 +1180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Volume fields for liquidity assessment
           front_volume: opp.front_volume,
           back_volume: opp.back_volume,
-          // Position sizing and warnings
-          position_size_recommendation: String(opp.position_size_recommendation),
+          // Position sizing handled by kelly_sizing_recommendation text field
+          // Removed position_size_recommendation as it was causing fractional values in INTEGER column
           execution_warnings: opp.execution_warnings,
           // Quality analysis fields
           quality_score: opp.quality_score,
@@ -1191,6 +1197,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           earnings_date: opp.earnings_date || null,
           fed_events: opp.fed_events || [],
           event_warnings: opp.event_warnings || [],
+          // New quality filter fields
+          meets_30_90_criteria: opp.meets_30_90_criteria,
+          meets_60_90_criteria: opp.meets_60_90_criteria,
+          liquidity_rating: opp.liquidity_rating,
+          kelly_sizing_recommendation: opp.kelly_sizing_recommendation,
         }));
         
         await storage.createOpportunities(opportunityRecords);

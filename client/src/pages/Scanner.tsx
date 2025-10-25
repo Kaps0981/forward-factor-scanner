@@ -54,6 +54,7 @@ export default function Scanner() {
       useMarketCap?: boolean;
       minMarketCap?: number;
       maxMarketCap?: number;
+      strategyType?: '30-90' | '60-90';
     }) => {
       const tickersToScan = params.tickers || [];
       const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 30) : 30;
@@ -92,6 +93,7 @@ export default function Scanner() {
           use_market_cap: params.useMarketCap,
           min_market_cap: params.minMarketCap,
           max_market_cap: params.maxMarketCap,
+          strategy_type: params.strategyType,
         });
 
         let data: ScanResponse;
@@ -140,6 +142,7 @@ export default function Scanner() {
     useMarketCap?: boolean;
     minMarketCap?: number;
     maxMarketCap?: number;
+    strategyType?: '30-90' | '60-90';
   }) => {
     scanMutation.mutate(params);
   };

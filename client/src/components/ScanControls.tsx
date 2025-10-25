@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Play } from "lucide-react";
 
 interface ScanControlsProps {
@@ -19,6 +20,7 @@ interface ScanControlsProps {
     useMarketCap?: boolean;
     minMarketCap?: number;
     maxMarketCap?: number;
+    strategyType?: '30-90' | '60-90';
   }) => void;
   isScanning: boolean;
   initialTickers?: string;
@@ -35,6 +37,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [enableEmailAlerts, setEnableEmailAlerts] = useState(false);
   const [minMarketCap, setMinMarketCap] = useState(2);
   const [maxMarketCap, setMaxMarketCap] = useState(15);
+  const [strategyType, setStrategyType] = useState<"all" | "30-90" | "60-90">("all");
 
   const handleScan = () => {
     const tickers = scanType === "custom" && customTickers
@@ -51,6 +54,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
       useMarketCap: scanType === "marketcap",
       minMarketCap: scanType === "marketcap" ? minMarketCap : undefined,
       maxMarketCap: scanType === "marketcap" ? maxMarketCap : undefined,
+      strategyType: strategyType === "all" ? undefined : strategyType,
     });
   };
 
@@ -161,6 +165,25 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   Quality filters and IVR regime filtering are applied automatically to find the best trades.
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="strategy-type" className="text-xs sm:text-sm font-medium">
+                Strategy Filter
+              </Label>
+              <Select value={strategyType} onValueChange={(value) => setStrategyType(value as "all" | "30-90" | "60-90")}>
+                <SelectTrigger id="strategy-type" data-testid="select-strategy-type">
+                  <SelectValue placeholder="Select strategy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Opportunities</SelectItem>
+                  <SelectItem value="30-90">30-90 DTE Strategy</SelectItem>
+                  <SelectItem value="60-90">60-90 DTE Strategy</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Filter opportunities by specific trading strategies
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">

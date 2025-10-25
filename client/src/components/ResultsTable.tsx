@@ -109,6 +109,31 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
     return 'text-red-600 dark:text-red-400';
   };
 
+  const getQualityScoreColor = (score: number | undefined): string => {
+    if (score === undefined || score === null) return 'text-muted-foreground';
+    if (score >= 80) return 'text-green-600 dark:text-green-400';
+    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
+  };
+
+  const getQualityScoreBadgeClass = (score: number | undefined): string => {
+    if (score === undefined || score === null) return 'bg-muted/10 text-muted-foreground border-muted/20';
+    if (score >= 80) return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
+    if (score >= 60) return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
+    return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
+  };
+
+  const getLiquidityRatingBadgeClass = (rating: string | undefined): string => {
+    if (!rating) return 'bg-muted/10 text-muted-foreground border-muted/20';
+    switch(rating) {
+      case 'VERY_HIGH': return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20';
+      case 'HIGH': return 'bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20';
+      case 'MEDIUM': return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/20';
+      case 'LOW': return 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20';
+      default: return 'bg-muted/10 text-muted-foreground border-muted/20';
+    }
+  };
+
   const getIVRBadgeVariant = (ivr: number | undefined): string => {
     if (ivr === undefined || ivr === null) return 'outline';
     if (ivr > 70) return 'destructive'; // Red for high IVR
@@ -285,6 +310,59 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">
+                        Quality
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Quality Score (0-100)</p>
+                        <p className="text-xs text-muted-foreground">Overall trade quality assessment</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="text-center font-semibold bg-card">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Strategy
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Strategy Match</p>
+                        <p className="text-xs text-muted-foreground">30-90: 30-90 DTE premium strategy</p>
+                        <p className="text-xs text-muted-foreground">60-90: 60-90 DTE conservative strategy</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="text-center font-semibold bg-card">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Liquidity
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Liquidity Rating</p>
+                        <p className="text-xs text-muted-foreground">Based on open interest and volume</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="text-center font-semibold bg-card">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Kelly Size
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Kelly Sizing Recommendation</p>
+                        <p className="text-xs text-muted-foreground">Optimal position sizing based on Kelly criterion</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead className="text-center font-semibold bg-card">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
                         Events
                       </TooltipTrigger>
                       <TooltipContent>
@@ -425,6 +503,94 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         >
                           {opp.signal}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-quality-score-${index}`}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="outline"
+                                className={getQualityScoreBadgeClass(opp.quality_score)}
+                              >
+                                {opp.quality_score !== undefined ? `${opp.quality_score}` : '—'}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="font-semibold">Quality Score: {opp.quality_score || 0}/100</p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {opp.quality_score && opp.quality_score >= 80 && "Excellent opportunity"}
+                                {opp.quality_score && opp.quality_score >= 60 && opp.quality_score < 80 && "Good opportunity"}
+                                {opp.quality_score && opp.quality_score < 60 && "Consider with caution"}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-strategy-match-${index}`}>
+                        <div className="flex items-center justify-center gap-1">
+                          {opp.meets_30_90_criteria && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="secondary" className="text-xs">
+                                    30-90
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Meets 30-90 DTE criteria</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {opp.meets_60_90_criteria && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="secondary" className="text-xs">
+                                    60-90
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Meets 60-90 DTE criteria</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {!opp.meets_30_90_criteria && !opp.meets_60_90_criteria && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`badge-liquidity-rating-${index}`}>
+                        <Badge
+                          variant="outline"
+                          className={getLiquidityRatingBadgeClass(opp.liquidity_rating)}
+                        >
+                          {opp.liquidity_rating || '—'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`text-kelly-sizing-${index}`}>
+                        {opp.kelly_sizing_recommendation && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-center gap-1">
+                                  <span className="text-sm">{opp.kelly_sizing_recommendation}</span>
+                                  <Info className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="font-semibold">Kelly Sizing</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Optimal position size based on probability and risk/reward
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {!opp.kelly_sizing_recommendation && (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-center" data-testid={`cell-events-${index}`}>
                         <div className="flex items-center justify-center gap-1">

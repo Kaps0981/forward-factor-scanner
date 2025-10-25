@@ -35,11 +35,16 @@ export const opportunitySchema = z.object({
   // Execution warnings
   execution_warnings: z.array(z.string()).optional(),
   // Quality analysis fields
-  quality_score: z.number().min(0).max(10).optional(),
+  quality_score: z.number().min(0).max(100).optional(), // Changed from max(10) to max(100)
   is_quality: z.boolean().optional(),
   probability: z.number().min(0).max(100).optional(),
   risk_reward: z.number().min(0).optional(),
   rejection_reasons: z.array(z.string()).optional(),
+  // New quality filter fields
+  meets_30_90_criteria: z.boolean().optional(),
+  meets_60_90_criteria: z.boolean().optional(),
+  liquidity_rating: z.enum(['LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH']).optional(),
+  kelly_sizing_recommendation: z.string().optional(),
   // IVR (Implied Volatility Rank) fields
   front_ivr: z.number().min(0).max(100).optional(),
   back_ivr: z.number().min(0).max(100).optional(),
@@ -60,6 +65,8 @@ export const scanRequestSchema = z.object({
   top_n: z.number().min(1).max(100).optional(),
   min_open_interest: z.number().min(0).optional(),
   enable_email_alerts: z.boolean().optional(),
+  strategy_type: z.enum(['30-90', '60-90']).optional(), // Strategy selection for quality filters
+  max_monthly_trades: z.number().min(1).max(100).default(20).optional(), // Limit trades per month (default: 20 based on research)
 });
 
 export type ScanRequest = z.infer<typeof scanRequestSchema>;
@@ -157,6 +164,11 @@ export const opportunities = pgTable("opportunities", {
   earnings_date: varchar("earnings_date", { length: 20 }),
   fed_events: jsonb("fed_events"), // Array of Fed event strings
   event_warnings: jsonb("event_warnings"), // Array of warning strings
+  // New quality filter fields
+  meets_30_90_criteria: boolean("meets_30_90_criteria"),
+  meets_60_90_criteria: boolean("meets_60_90_criteria"),
+  liquidity_rating: varchar("liquidity_rating", { length: 20 }),
+  kelly_sizing_recommendation: varchar("kelly_sizing_recommendation", { length: 50 }),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });

@@ -283,6 +283,115 @@ export class ForwardFactorScanner {
     return { forwardFactor, forwardVol };
   }
 
+  /**
+   * Apply quality filters to opportunities to maximize Sharpe ratio
+   * @param opportunities Array of raw opportunities from scanning
+   * @param strategyType Optional strategy type ('30-90' or '60-90') for DTE window matching
+   * @returns Filtered and scored opportunities
+   */
+  applyQualityFilters(opportunities: Opportunity[], strategyType?: '30-90' | '60-90'): Opportunity[] {
+    return opportunities.map(opp => {
+      const absFF = Math.abs(opp.forward_factor);
+      
+      // Calculate base quality score from |FF| magnitude
+      let qualityScore = 0;
+      if (absFF < 30) {
+        qualityScore = 0; // Below minimum threshold
+      } else if (absFF <= 40) {
+        qualityScore = 50 + (absFF - 30) * 2; // Linear scaling 50-70
+      } else if (absFF <= 50) {
+        qualityScore = 70 + (absFF - 40) * 2; // Linear scaling 70-90
+      } else {
+        qualityScore = 90 + Math.min(10, absFF - 50); // Cap at 100
+      }
+
+      // Calculate liquidity bonuses
+      const frontOI = opp.straddle_oi || 0;
+      const backOI = opp.back_straddle_oi || 0;
+      const totalOI = frontOI + backOI;
+      const frontVolume = opp.front_volume || 0;
+      const backVolume = opp.back_volume || 0;
+      const totalVolume = frontVolume + backVolume;
+
+      // Add OI bonus
+      if (totalOI > 5000) {
+        qualityScore += 10;
+      } else if (totalOI > 2000) {
+        qualityScore += 5;
+      }
+
+      // Add volume bonus
+      if (totalVolume > 2000) {
+        qualityScore += 5;
+      }
+
+      // Check DTE windows for strategy matching
+      const meets30_90Criteria = opp.front_dte >= 25 && opp.front_dte <= 35 && 
+                                opp.back_dte >= 85 && opp.back_dte <= 95;
+      const meets60_90Criteria = opp.front_dte >= 55 && opp.front_dte <= 65 && 
+                                opp.back_dte >= 85 && opp.back_dte <= 95;
+
+      // Add DTE match bonus if strategy is specified
+      if (strategyType === '30-90' && meets30_90Criteria) {
+        qualityScore += 10;
+      } else if (strategyType === '60-90' && meets60_90Criteria) {
+        qualityScore += 10;
+      }
+
+      // Cap quality score at 100
+      qualityScore = Math.min(100, Math.max(0, qualityScore));
+
+      // Determine liquidity rating
+      let liquidityRating: 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH' = 'LOW';
+      if (totalOI >= 10000 && totalVolume >= 5000) {
+        liquidityRating = 'VERY_HIGH';
+      } else if (totalOI >= 5000 && totalVolume >= 2000) {
+        liquidityRating = 'HIGH';
+      } else if (totalOI >= 2000 && totalVolume >= 1000) {
+        liquidityRating = 'MEDIUM';
+      } else {
+        liquidityRating = 'LOW';
+      }
+
+      // Determine Kelly sizing recommendation
+      let kellySizing: string;
+      if (qualityScore > 80) {
+        kellySizing = 'Quarter Kelly';
+      } else if (qualityScore >= 60) {
+        kellySizing = 'Half Kelly';
+      } else {
+        kellySizing = 'Minimum position';
+      }
+
+      // Apply minimum liquidity filters (OI >= 1000, volume >= 500)
+      // Only include if meets minimum requirements OR if quality score is very high
+      const meetsMinimumLiquidity = totalOI >= 1000 && totalVolume >= 500;
+      
+      // Return the opportunity with quality fields added
+      return {
+        ...opp,
+        quality_score: Math.round(qualityScore),
+        meets_30_90_criteria: meets30_90Criteria,
+        meets_60_90_criteria: meets60_90Criteria,
+        liquidity_rating: liquidityRating,
+        kelly_sizing_recommendation: kellySizing,
+        // Mark as filtered if doesn't meet minimum requirements
+        is_quality: meetsMinimumLiquidity && absFF >= 30
+      };
+    })
+    // Filter out opportunities that don't meet minimum quality standards
+    .filter(opp => {
+      const absFF = Math.abs(opp.forward_factor);
+      const totalOI = (opp.straddle_oi || 0) + (opp.back_straddle_oi || 0);
+      const totalVolume = (opp.front_volume || 0) + (opp.back_volume || 0);
+      
+      // Must meet minimum |FF| threshold of 30% AND minimum liquidity requirements
+      return absFF >= 30 && totalOI >= 1000 && totalVolume >= 500;
+    })
+    // Sort by quality score descending
+    .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0));
+  }
+
   async scanTicker(ticker: string, minFF: number = -100, maxFF: number = 100): Promise<Opportunity[]> {
     try {
       const options = await this.polygon.getOptionsContracts(ticker);
