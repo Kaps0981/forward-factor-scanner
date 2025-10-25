@@ -535,6 +535,44 @@ export class ForwardFactorScanner {
               console.log(`${ticker}: Volumes calculated - Front: ${front.totalVolume}, Back: ${back.totalVolume}`);
             }
             
+            // Calculate Greeks using Black-Scholes model
+            let greeks = {
+              delta: 0,
+              gamma: 0,
+              theta: 0,
+              vega: 0,
+              rho: 0
+            };
+
+            // Only calculate Greeks if we have a stock price
+            if (stockPrice && stockPrice > 0) {
+              try {
+                // Import at runtime to avoid circular dependency
+                const { BlackScholesModel } = require('./optionsPricing');
+                
+                // Calculate front month Greeks (since that's the primary position)
+                const frontPricing = BlackScholesModel.calculate({
+                  stockPrice: stockPrice,
+                  strikePrice: stockPrice, // ATM
+                  timeToExpiration: front.dte / 365,
+                  volatility: front.atmIV / 100, // Convert to decimal
+                  riskFreeRate: 0.05, // 5% risk-free rate
+                  dividendYield: tickerDetails?.dividend_yield || 0
+                });
+
+                // For a calendar spread, use front month straddle Greeks
+                greeks = {
+                  delta: Math.round((frontPricing.straddleDelta || 0) * 100) / 100,
+                  gamma: Math.round((frontPricing.straddleGamma || 0) * 1000) / 1000,
+                  theta: Math.round((frontPricing.straddleTheta || 0) * 100) / 100,
+                  vega: Math.round((frontPricing.straddleVega || 0) * 100) / 100,
+                  rho: Math.round(((frontPricing.callGreeks.rho + frontPricing.putGreeks.rho) || 0) * 100) / 100
+                };
+              } catch (error) {
+                console.error(`Error calculating Greeks for ${ticker}:`, error);
+              }
+            }
+            
             opportunities.push({
               ticker,
               forward_factor: Math.round(forwardFactor * 100) / 100,
@@ -562,6 +600,12 @@ export class ForwardFactorScanner {
               // Volume fields for liquidity assessment
               front_volume: front.totalVolume,
               back_volume: back.totalVolume,
+              // Option Greeks
+              delta: greeks.delta,
+              gamma: greeks.gamma,
+              theta: greeks.theta,
+              vega: greeks.vega,
+              rho: greeks.rho,
               // IVR fields
               front_ivr: frontIVR,
               back_ivr: backIVR,
