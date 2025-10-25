@@ -1199,6 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Save scan to database
       const scan = await storage.createScan({
+        userId,
         tickers_scanned: Math.min(tickersToScan.length, 100),
         total_opportunities: limitedOpportunities.length,
         min_ff: minFF,
@@ -1219,6 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         const opportunityRecords = limitedOpportunities.map(opp => ({
+          userId,
           scan_id: scan.id,
           ticker: opp.ticker,
           forward_factor: opp.forward_factor,
