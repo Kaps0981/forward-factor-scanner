@@ -7,7 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Play } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Play, BarChart2 } from "lucide-react";
+import { AboutModal } from "@/components/AboutModal";
 
 interface ScanControlsProps {
   onScan: (params: {
@@ -43,6 +45,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [dteStrategy, setDTEStrategy] = useState<'30-90' | '30-60' | '60-90' | 'all'>('30-90');
   const [ffCalculationMode, setFFCalculationMode] = useState<'raw' | 'ex-earnings'>('raw');
   const [ffFilterMode, setFFFilterMode] = useState<'aggressive' | 'moderate' | 'balanced' | 'minimal' | 'none'>('moderate');
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
   const handleScan = () => {
     const tickers = scanType === "custom" && customTickers
@@ -77,11 +80,23 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   };
 
   return (
-    <Card className="border-card-border">
-      <CardContent className="p-4 md:p-6">
-        <div className="space-y-4 md:space-y-6">
-          <div>
-            <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Scan Configuration</h2>
+    <>
+      <Card className="border-card-border">
+        <CardContent className="p-4 md:p-6">
+          <div className="space-y-4 md:space-y-6">
+            <div>
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h2 className="text-base md:text-lg font-semibold">Scan Configuration</h2>
+                <Badge 
+                  variant="outline" 
+                  className="cursor-pointer hover-elevate active-elevate-2"
+                  onClick={() => setAboutModalOpen(true)}
+                  data-testid="badge-research"
+                >
+                  <BarChart2 className="h-3 w-3 mr-1" />
+                  Based on 18yr Backtest
+                </Badge>
+              </div>
             
             <Tabs value={scanType} onValueChange={(v) => setScanType(v as "default" | "custom" | "marketcap")}>
               <TabsList className="grid w-full grid-cols-3 mb-3 md:mb-4 h-auto">
@@ -411,5 +426,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
         </div>
       </CardContent>
     </Card>
+    <AboutModal open={aboutModalOpen} onOpenChange={setAboutModalOpen} />
+    </>
   );
 }

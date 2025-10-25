@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Activity, Menu } from "lucide-react";
+import { Activity, Menu, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Sheet,
@@ -12,6 +13,14 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface HeaderProps {
   currentPage?: "scanner" | "history" | "watchlists" | "paper-trading";
@@ -86,7 +95,7 @@ export function Header({ currentPage = "scanner" }: HeaderProps) {
               </div>
               <div>
                 <h1 className="text-lg md:text-2xl font-semibold tracking-tight">
-                  VolEdge
+                  FFQuant
                 </h1>
                 <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   Research-based volatility mispricing detector
@@ -110,10 +119,80 @@ export function Header({ currentPage = "scanner" }: HeaderProps) {
             </nav>
           </div>
 
-          {/* Theme Toggle - Always visible */}
-          <ThemeToggle />
+          {/* Right side actions */}
+          <div className="flex items-center gap-2">
+            {/* User Profile & Logout */}
+            <UserMenu />
+            {/* Theme Toggle */}
+            <ThemeToggle />
+          </div>
         </div>
       </div>
     </header>
+  );
+}
+
+function UserMenu() {
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    window.location.href = "/api/logout";
+  };
+
+  if (!user) {
+    return (
+      <Button 
+        onClick={() => window.location.href = "/api/login"}
+        size="sm"
+        data-testid="button-signin"
+      >
+        Sign In
+      </Button>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="icon"
+          className="relative"
+          data-testid="button-user-menu"
+        >
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.profileImage} alt={user.username} />
+            <AvatarFallback>
+              {user.username?.charAt(0)?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <div className="flex items-center gap-2 p-2">
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.profileImage} alt={user.username} />
+            <AvatarFallback>
+              {user.username?.charAt(0)?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col flex-1">
+            <p className="text-sm font-medium truncate">{user.username}</p>
+            <p className="text-xs text-muted-foreground">
+              {user.scansThisMonth || 0} / {user.subscriptionTier === 'paid' ? '30' : '20'} scans
+            </p>
+          </div>
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          onClick={handleLogout}
+          className="text-destructive cursor-pointer"
+          data-testid="button-logout"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Log Out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

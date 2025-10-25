@@ -6,6 +6,7 @@ import {
   paperTrades,
   tradeNewsEvents,
   portfolioSummary,
+  users,
   type Scan, 
   type InsertScan, 
   type InsertOpportunity, 
@@ -17,11 +18,21 @@ import {
   type TradeNewsEvent,
   type InsertTradeNewsEvent,
   type PortfolioSummary,
-  type InsertPortfolioSummary
+  type InsertPortfolioSummary,
+  type User,
+  type UpsertUser
 } from "@shared/schema";
 import { eq, desc, and, isNull, gt, sql } from "drizzle-orm";
 
 export interface IStorage {
+  // User operations (IMPORTANT: mandatory for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  incrementUserScanCount(userId: string): Promise<User>;
+  resetMonthlyScans(userId: string): Promise<User>;
+  getUserScanLimit(userId: string): Promise<number>;
+  checkAndResetMonthlyScans(userId: string): Promise<User>;
+  
   // Scan history
   createScan(scan: InsertScan): Promise<Scan>;
   getScan(id: number): Promise<Scan | undefined>;
@@ -60,6 +71,86 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User operations (IMPORTANT: mandatory for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async incrementUserScanCount(userId: string): Promise<User> {
+    // First check and reset monthly scans if needed
+    await this.checkAndResetMonthlyScans(userId);
+    
+    const [user] = await db
+      .update(users)
+      .set({
+        scansThisMonth: sql`${users.scansThisMonth} + 1`,
+        lastScanAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async resetMonthlyScans(userId: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({
+        scansThisMonth: 0,
+        monthResetAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getUserScanLimit(userId: string): Promise<number> {
+    const user = await this.getUser(userId);
+    if (!user) return 20; // Default for free tier
+    
+    switch (user.subscriptionTier) {
+      case 'pro':
+        return 100;
+      case 'enterprise':
+        return -1; // Unlimited
+      default:
+        return 20; // Free tier
+    }
+  }
+
+  async checkAndResetMonthlyScans(userId: string): Promise<User> {
+    const user = await this.getUser(userId);
+    if (!user) throw new Error("User not found");
+    
+    const now = new Date();
+    const lastReset = user.monthResetAt || user.createdAt || now;
+    const daysSinceReset = Math.floor((now.getTime() - lastReset.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Reset if more than 30 days have passed
+    if (daysSinceReset >= 30) {
+      return await this.resetMonthlyScans(userId);
+    }
+    
+    return user;
+  }
+
   // Scan history methods
   async createScan(scan: InsertScan): Promise<Scan> {
     const [result] = await db.insert(scans).values(scan).returning();

@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision, boolean } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 // Scanner opportunity result from Forward Factor analysis
@@ -369,3 +370,37 @@ export const updateExitSignalSchema = z.object({
 });
 
 export type UpdateExitSignalRequest = z.infer<typeof updateExitSignalSchema>;
+
+// Session storage table for Replit Auth
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table for Replit Auth with subscription tracking
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  // Subscription and scan tracking fields
+  scansThisMonth: integer("scans_this_month").default(0).notNull(),
+  lastScanAt: timestamp("last_scan_at"),
+  monthResetAt: timestamp("month_reset_at"),
+  subscriptionTier: varchar("subscription_tier").default('free').notNull(),
+  isWaitlisted: boolean("is_waitlisted").default(false).notNull(),
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;

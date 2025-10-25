@@ -7,8 +7,11 @@ import { SummaryCards } from "@/components/SummaryCards";
 import { ResultsTable } from "@/components/ResultsTable";
 import { ScanProgress } from "@/components/ScanProgress";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import { Activity, Clock, FileText, Download, Calendar, Building, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,9 +24,16 @@ import {
 
 export default function Scanner() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [scanResults, setScanResults] = useState<ScanResponse | null>(null);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0, ticker: "" });
   const [eventsExpanded, setEventsExpanded] = useState(false);
+  
+  // Calculate scans remaining
+  const scanLimit = user?.subscriptionTier === 'paid' ? 30 : 20;
+  const scansUsed = user?.scansThisMonth || 0;
+  const scansRemaining = Math.max(0, scanLimit - scansUsed);
+  const hasReachedLimit = scansRemaining === 0;
   
   // Parse URL params for watchlist pre-fill
   const urlParams = new URLSearchParams(window.location.search);
@@ -128,6 +138,22 @@ export default function Scanner() {
       });
     },
     onError: (error: Error) => {
+      // Check for unauthorized error
+      if (isUnauthorizedError(error)) {
+        window.location.href = "/api/login";
+        return;
+      }
+      
+      // Check for scan limit error
+      if (error.message.includes("scan limit")) {
+        toast({
+          title: "Scan Limit Reached",
+          description: "You've reached your monthly scan limit. Upgrade coming soon!",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Scan Failed",
         description: error.message,
@@ -241,11 +267,59 @@ export default function Scanner() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header currentPage="scanner" />
 
-      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8 flex-1">
         <div className="space-y-6">
+          {/* Scan Usage Card */}
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base">Monthly Scan Usage</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {scansUsed} of {scanLimit} scans used this month
+                  </p>
+                </div>
+                {hasReachedLimit ? (
+                  <Badge variant="destructive">
+                    Limit Reached - Upgrade Coming Soon
+                  </Badge>
+                ) : scansRemaining <= 5 ? (
+                  <Badge variant="outline" className="border-yellow-500 text-yellow-600">
+                    {scansRemaining} scans remaining
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">
+                    {scansRemaining} scans remaining
+                  </Badge>
+                )}
+              </div>
+              {user && (
+                <div className="mt-3">
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary rounded-full h-2 transition-all"
+                      style={{ width: `${(scansUsed / scanLimit) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardHeader>
+            {hasReachedLimit && (
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                  <p className="text-sm">
+                    You've reached your monthly scan limit. Upgrade options coming soon! 
+                    Your scan count will reset at the beginning of next month.
+                  </p>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+
           {/* Upcoming Events Card */}
           {scanResults && scanResults.opportunities.length > 0 && (
             <Collapsible open={eventsExpanded} onOpenChange={setEventsExpanded}>
@@ -459,13 +533,7 @@ export default function Scanner() {
         </div>
       </main>
 
-      <footer className="border-t border-border mt-8 md:mt-12 py-4 md:py-6">
-        <div className="container max-w-7xl mx-auto px-4 md:px-6">
-          <p className="text-center text-xs md:text-sm text-muted-foreground">
-            Educational tool only. Not financial advice. Always verify signals before trading.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

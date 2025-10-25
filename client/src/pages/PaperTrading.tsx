@@ -25,6 +25,7 @@ import {
 import { format } from "date-fns";
 import type { PaperTrade, PortfolioSummary } from "@shared/schema";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { EditPricesDialog } from "@/components/EditPricesDialog";
 import {
   AlertDialog,
@@ -692,6 +693,7 @@ export default function PaperTrading() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    <Footer />
     </>
   );
 }

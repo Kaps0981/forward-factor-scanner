@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { type Scan } from "@shared/schema";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { History as HistoryIcon, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,10 +29,10 @@ export default function History() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header currentPage="history" />
 
-      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8 flex-1">
         <div className="space-y-4 md:space-y-6">
           <div className="flex items-center gap-2 md:gap-3">
             <HistoryIcon className="h-5 w-5 md:h-6 md:w-6 text-primary" />
@@ -94,6 +95,7 @@ export default function History() {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

@@ -19,9 +19,25 @@ import { MarketCapFilter } from "./marketCapFilter";
 import { FinancialEventsService } from "./financialEvents";
 import { PayoffCalculator } from "./payoffCalculator";
 import { NewsService } from "./newsService";
+import { setupAuth, isAuthenticated } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const POLYGON_API_KEY = process.env.POLYGON_API_KEY;
+  
+  // Auth middleware - setup authentication first
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
 
   app.get("/api/health", (req, res) => {
     res.json({
@@ -992,11 +1008,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/scan", async (req, res) => {
+  app.post("/api/scan", isAuthenticated, async (req: any, res) => {
     try {
       if (!POLYGON_API_KEY) {
         return res.status(500).json({
           error: "Polygon API key not configured",
+        });
+      }
+
+      // Get user ID from authenticated session
+      const userId = req.user.claims.sub;
+      
+      // Check and reset monthly scans if needed
+      const user = await storage.checkAndResetMonthlyScans(userId);
+      
+      // Check scan limits
+      const scanLimit = await storage.getUserScanLimit(userId);
+      if (scanLimit !== -1 && user.scansThisMonth >= scanLimit) {
+        return res.status(403).json({
+          error: `Scan limit reached. You have used ${user.scansThisMonth} of ${scanLimit} scans this month.`,
+          scansUsed: user.scansThisMonth,
+          scanLimit: scanLimit,
+          subscriptionTier: user.subscriptionTier,
         });
       }
 
@@ -1234,12 +1267,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Increment user's scan count after successful scan
+      await storage.incrementUserScanCount(userId);
+      
+      // Get updated user for scan count info
+      const updatedUser = await storage.getUser(userId);
+      const userScanLimit = await storage.getUserScanLimit(userId);
+
       res.json({
         success: true,
         scan_id: scan.id,
         opportunities: limitedOpportunities,
         total_tickers_scanned: Math.min(tickersToScan.length, 100),
         total_opportunities_found: limitedOpportunities.length,
+        scansUsed: updatedUser?.scansThisMonth || 0,
+        scanLimit: userScanLimit,
       });
     } catch (error) {
       console.error("Scan error:", error);

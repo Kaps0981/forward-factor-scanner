@@ -108,7 +108,7 @@ export async function sendHighFFAlert(opportunities: Opportunity[]) {
         </div>
         
         <p style="color: #999; font-size: 12px; margin-top: 30px;">
-          Forward Factor Scanner | Professional Options Analysis
+          FFQuant | Professional Options Analysis
         </p>
       </div>
     `;

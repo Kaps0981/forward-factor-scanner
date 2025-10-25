@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { type Watchlist } from "@shared/schema";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -108,10 +109,10 @@ export default function Watchlists() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header currentPage="watchlists" />
       
-      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8">
+      <main className="container max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-8 flex-1">
         <div className="space-y-4 md:space-y-6">
           {/* Page Title */}
           <div className="flex items-center gap-2 md:gap-3">
@@ -281,6 +282,7 @@ export default function Watchlists() {
           </AlertDialog>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }
