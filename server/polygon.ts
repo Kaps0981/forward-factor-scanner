@@ -138,8 +138,17 @@ export class PolygonService {
         timeout: 10000,
       });
 
-      return response.data.results?.p || 0;
+      const price = response.data.results?.p || response.data.results?.price;
+      if (!price) {
+        console.warn(`No price data in Polygon response for ${ticker}:`, response.data);
+      }
+      return price || 0;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error(`Failed to fetch last quote for ${ticker}: ${error.response?.status} - ${error.response?.data?.status || error.message}`);
+      } else {
+        console.error(`Failed to fetch last quote for ${ticker}:`, error);
+      }
       return 0;
     }
   }
