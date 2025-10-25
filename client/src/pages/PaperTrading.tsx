@@ -23,10 +23,11 @@ import {
   Trash2
 } from "lucide-react";
 import { format } from "date-fns";
-import type { PaperTrade, PortfolioSummary } from "@shared/schema";
+import type { PaperTrade, PortfolioSummary, Opportunity } from "@shared/schema";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { EditPricesDialog } from "@/components/EditPricesDialog";
+import { PayoffDiagram } from "@/components/PayoffDiagram";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +46,8 @@ export default function PaperTrading() {
   const [selectedEditTrade, setSelectedEditTrade] = useState<PaperTrade | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tradeToDelete, setTradeToDelete] = useState<PaperTrade | null>(null);
+  const [payoffTradeId, setPayoffTradeId] = useState<number | null>(null);
+  const [showPayoffDiagram, setShowPayoffDiagram] = useState(false);
   
   // Fetch open positions
   const { data: openTradesData, isLoading: tradesLoading, refetch: refetchTrades } = useQuery<{ trades: PaperTrade[] }>({
@@ -76,6 +79,39 @@ export default function PaperTrading() {
   }>({
     queryKey: [`/api/paper-trades/${selectedTradeId}/news`],
     enabled: !!selectedTradeId
+  });
+  
+  // Fetch payoff data for selected trade
+  const { data: payoffData } = useQuery({
+    queryKey: [`/api/paper-trades/${payoffTradeId}/payoff`],
+    queryFn: async () => {
+      if (!payoffTradeId) return null;
+      const trade = openTrades.find(t => t.id === payoffTradeId);
+      if (!trade) return null;
+      
+      // Create opportunity from trade data for payoff analysis
+      const opportunity: Opportunity = {
+        ticker: trade.ticker,
+        forward_factor: trade.forward_factor,
+        signal: trade.signal,
+        front_date: trade.front_expiry,
+        front_dte: trade.days_to_front_expiry || 30,
+        front_iv: trade.front_iv || 50,
+        back_date: trade.back_expiry,
+        back_dte: (trade.days_to_front_expiry || 30) + 7,
+        back_iv: trade.back_iv || 45,
+        forward_vol: trade.forward_vol || 48,
+        avg_open_interest: 1000,
+        has_earnings_soon: false
+      };
+      
+      const response = await apiRequest("POST", "/api/payoff-analysis", {
+        opportunity,
+        currentStockPrice: trade.stock_current_price || trade.stock_entry_price
+      });
+      return response.json();
+    },
+    enabled: !!payoffTradeId
   });
   
   // Update all prices mutation
@@ -421,6 +457,18 @@ export default function PaperTrading() {
                       </Button>
                       <Button 
                         size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setPayoffTradeId(trade.id);
+                          setShowPayoffDiagram(true);
+                        }}
+                        data-testid={`button-payoff-diagram-${trade.id}`}
+                      >
+                        <Activity className="w-4 h-4 mr-1" />
+                        Payoff Diagram
+                      </Button>
+                      <Button 
+                        size="sm"
                         variant="destructive"
                         onClick={() => {
                           const currentPrice = trade.current_price || trade.entry_price;
@@ -692,6 +740,36 @@ export default function PaperTrading() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Payoff Diagram Modal */}
+      {payoffTradeId && (
+        <PayoffDiagram
+          open={showPayoffDiagram}
+          onClose={() => {
+            setShowPayoffDiagram(false);
+            setPayoffTradeId(null);
+          }}
+          opportunity={(() => {
+            const trade = openTrades.find(t => t.id === payoffTradeId);
+            if (!trade) return null;
+            return {
+              ticker: trade.ticker,
+              forward_factor: trade.forward_factor,
+              signal: trade.signal,
+              front_date: trade.front_expiry,
+              front_dte: trade.days_to_front_expiry || 30,
+              front_iv: trade.front_iv || 50,
+              back_date: trade.back_expiry,
+              back_dte: (trade.days_to_front_expiry || 30) + 7,
+              back_iv: trade.back_iv || 45,
+              forward_vol: trade.forward_vol || 48,
+              avg_open_interest: 1000,
+              has_earnings_soon: false
+            } as Opportunity;
+          })()}
+          payoffData={payoffData}
+        />
+      )}
     </div>
     <Footer />
     </>

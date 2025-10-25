@@ -8,6 +8,9 @@ export interface PolygonOption {
   expiration_date: string;
   implied_volatility?: number;
   delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
   contract_type: 'call' | 'put';
   last_trade?: {
     price: number;
@@ -126,6 +129,9 @@ export class PolygonService {
             expiration_date: opt.details!.expiration_date!,
             implied_volatility: opt.implied_volatility,
             delta: opt.greeks?.delta,
+            gamma: opt.greeks?.gamma,
+            theta: opt.greeks?.theta,
+            vega: opt.greeks?.vega,
             contract_type: (opt.details!.contract_type?.toLowerCase() === 'call' ? 'call' : 'put') as 'call' | 'put',
             open_interest: opt.open_interest,
             day_volume: opt.day?.volume,

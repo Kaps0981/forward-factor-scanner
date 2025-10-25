@@ -195,7 +195,7 @@ export function OpportunityDetailsModal({
                       <MetricRow label="Stock Price" value={`$${opportunity.stock_price?.toFixed(2) || 'N/A'}`} />
                       <MetricRow label="Estimated Cost" value={`$${opportunity.estimated_cost?.toFixed(0) || 'N/A'}`} />
                       <MetricRow label="Dividend Yield" value={`${opportunity.dividend_yield?.toFixed(2) || 0}%`} />
-                      <MetricRow label="Market Cap" value={opportunity.market_cap || 'N/A'} />
+                      <MetricRow label="Sector" value={opportunity.sector || 'N/A'} />
                     </div>
                   </CardContent>
                 </Card>
@@ -214,7 +214,7 @@ export function OpportunityDetailsModal({
                       <MetricRow label="ATM Call OI" value={opportunity.atm_call_oi?.toLocaleString() || 'N/A'} />
                       <MetricRow label="ATM Put OI" value={opportunity.atm_put_oi?.toLocaleString() || 'N/A'} />
                       <MetricRow label="Put/Call Ratio" value={opportunity.oi_put_call_ratio?.toFixed(2) || 'N/A'} />
-                      <MetricRow label="Volume" value={opportunity.volume?.toLocaleString() || 'N/A'} />
+                      <MetricRow label="Front Volume" value={opportunity.front_volume?.toLocaleString() || 'N/A'} />
                     </div>
                     
                     {/* Liquidity Score */}

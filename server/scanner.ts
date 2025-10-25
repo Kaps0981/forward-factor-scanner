@@ -535,7 +535,7 @@ export class ForwardFactorScanner {
               console.log(`${ticker}: Volumes calculated - Front: ${front.totalVolume}, Back: ${back.totalVolume}`);
             }
             
-            // Calculate Greeks using Black-Scholes model
+            // Extract Greeks from Polygon data for ATM options
             let greeks = {
               delta: 0,
               gamma: 0,
@@ -544,32 +544,67 @@ export class ForwardFactorScanner {
               rho: 0
             };
 
-            // Only calculate Greeks if we have a stock price
-            if (stockPrice && stockPrice > 0) {
+            // Get Greeks from Polygon data if available
+            if (stockPrice && stockPrice > 0 && front.options && front.options.length > 0) {
               try {
-                // Import at runtime to avoid circular dependency
-                const { BlackScholesModel } = require('./optionsPricing');
+                // Find ATM options for the front expiration (within 10% of stock price)
+                const atmCall = front.options.find(opt => 
+                  opt.contract_type === 'call' && 
+                  this.isATM(opt.strike_price, stockPrice, 0.10) &&
+                  (opt.delta !== undefined || opt.gamma !== undefined || opt.theta !== undefined || opt.vega !== undefined)
+                );
                 
-                // Calculate front month Greeks (since that's the primary position)
-                const frontPricing = BlackScholesModel.calculate({
-                  stockPrice: stockPrice,
-                  strikePrice: stockPrice, // ATM
-                  timeToExpiration: front.dte / 365,
-                  volatility: front.atmIV / 100, // Convert to decimal
-                  riskFreeRate: 0.05, // 5% risk-free rate
-                  dividendYield: tickerDetails?.dividend_yield || 0
-                });
+                const atmPut = front.options.find(opt => 
+                  opt.contract_type === 'put' && 
+                  this.isATM(opt.strike_price, stockPrice, 0.10) &&
+                  (opt.delta !== undefined || opt.gamma !== undefined || opt.theta !== undefined || opt.vega !== undefined)
+                );
 
-                // For a calendar spread, use front month straddle Greeks
-                greeks = {
-                  delta: Math.round((frontPricing.straddleDelta || 0) * 100) / 100,
-                  gamma: Math.round((frontPricing.straddleGamma || 0) * 1000) / 1000,
-                  theta: Math.round((frontPricing.straddleTheta || 0) * 100) / 100,
-                  vega: Math.round((frontPricing.straddleVega || 0) * 100) / 100,
-                  rho: Math.round(((frontPricing.callGreeks.rho + frontPricing.putGreeks.rho) || 0) * 100) / 100
-                };
+                // For a straddle position, combine call and put Greeks
+                if (atmCall || atmPut) {
+                  const callDelta = atmCall?.delta || 0;
+                  const putDelta = atmPut?.delta || 0;
+                  const callGamma = atmCall?.gamma || 0;
+                  const putGamma = atmPut?.gamma || 0;
+                  const callTheta = atmCall?.theta || 0;
+                  const putTheta = atmPut?.theta || 0;
+                  const callVega = atmCall?.vega || 0;
+                  const putVega = atmPut?.vega || 0;
+                  
+                  greeks = {
+                    delta: Math.round((callDelta + putDelta) * 100) / 100,
+                    gamma: Math.round((callGamma + putGamma) * 1000) / 1000,
+                    theta: Math.round((callTheta + putTheta) * 100) / 100, // Negative for long position
+                    vega: Math.round((callVega + putVega) * 100) / 100,
+                    rho: 0 // Polygon doesn't provide rho
+                  };
+                  
+                  console.log(`${ticker}: Using Greeks from Polygon data - Delta: ${greeks.delta}, Gamma: ${greeks.gamma}, Theta: ${greeks.theta}, Vega: ${greeks.vega}`);
+                } else if (stockPrice > 0) {
+                  // Fallback to Black-Scholes calculation if Polygon doesn't have Greeks
+                  const { BlackScholesModel } = require('./optionsPricing');
+                  
+                  const frontPricing = BlackScholesModel.calculate({
+                    stockPrice: stockPrice,
+                    strikePrice: stockPrice, // ATM
+                    timeToExpiration: front.dte / 365,
+                    volatility: front.atmIV / 100,
+                    riskFreeRate: 0.05,
+                    dividendYield: tickerDetails?.dividend_yield || 0
+                  });
+
+                  greeks = {
+                    delta: Math.round((frontPricing.straddleDelta || 0) * 100) / 100,
+                    gamma: Math.round((frontPricing.straddleGamma || 0) * 1000) / 1000,
+                    theta: Math.round((frontPricing.straddleTheta || 0) * 100) / 100,
+                    vega: Math.round((frontPricing.straddleVega || 0) * 100) / 100,
+                    rho: Math.round(((frontPricing.callGreeks.rho + frontPricing.putGreeks.rho) || 0) * 100) / 100
+                  };
+                  
+                  console.log(`${ticker}: Calculated Greeks with Black-Scholes (no Polygon Greeks available)`);
+                }
               } catch (error) {
-                console.error(`Error calculating Greeks for ${ticker}:`, error);
+                console.error(`Error extracting Greeks for ${ticker}:`, error);
               }
             }
             
