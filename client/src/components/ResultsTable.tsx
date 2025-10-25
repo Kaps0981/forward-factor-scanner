@@ -434,6 +434,33 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                 </TableHead>
                 <TableHead className="text-right font-semibold bg-card">Back Month OI</TableHead>
                 <TableHead className="text-right font-semibold bg-card">Back Vol</TableHead>
+                <TableHead className="text-center font-semibold bg-card">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">
+                        Earnings
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="font-semibold">Earnings Date</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Days until earnings announcement
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          <span className="text-amber-600 dark:text-amber-400">0-5 days:</span> High risk (IV crush)
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="text-yellow-600 dark:text-yellow-400">6-10 days:</span> Caution
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="text-green-600 dark:text-green-400">11-30 days:</span> Manageable
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          "Est" indicates estimated date
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead 
                   className="text-right cursor-pointer hover-elevate font-semibold bg-card"
                   onClick={() => handleSort('min_liquidity')}
@@ -489,7 +516,32 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         style={{ color: opp.forward_factor < 0 ? 'hsl(142 76% 36%)' : 'hsl(0 72% 51%)' }}
                         data-testid={`text-ff-${index}`}
                       >
-                        {opp.forward_factor > 0 ? '+' : ''}{opp.forward_factor}%
+                        <div className="flex items-center justify-end gap-2">
+                          {opp.forward_factor > 0 ? '+' : ''}{opp.forward_factor}%
+                          {opp.is_ex_earnings && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20"
+                                  >
+                                    Ex-Earn
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="font-semibold">Ex-Earnings Calculation</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Adjusted for earnings IV premium (~15%)
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Shows pure term structure mispricing
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge
@@ -792,6 +844,40 @@ export function ResultsTable({ opportunities, onExportCSV }: ResultsTableProps) 
                         <span className={getLiquidityColor(opp.back_volume)}>
                           {formatVolume(opp.back_volume)}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-center" data-testid={`cell-earnings-${index}`}>
+                        {opp.earnings_date ? (
+                          <div className="space-y-1">
+                            <div className="font-mono text-sm">
+                              {new Date(opp.earnings_date).toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}
+                            </div>
+                            <div className="flex items-center justify-center gap-1">
+                              <span className={`text-xs font-semibold ${
+                                opp.days_to_earnings !== null && opp.days_to_earnings !== undefined ? (
+                                  opp.days_to_earnings <= 5 
+                                    ? "text-amber-600 dark:text-amber-400" 
+                                    : opp.days_to_earnings <= 10
+                                    ? "text-yellow-600 dark:text-yellow-400"
+                                    : opp.days_to_earnings <= 30
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-muted-foreground"
+                                ) : "text-muted-foreground"
+                              }`}>
+                                {opp.days_to_earnings !== null && opp.days_to_earnings !== undefined ? `(${opp.days_to_earnings}d)` : ''}
+                              </span>
+                              {opp.earnings_estimated && (
+                                <Badge variant="outline" className="text-xs py-0 px-1 h-4">
+                                  Est
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell 
                         className={`text-right font-mono tabular-nums font-semibold ${getLiquidityColor(minLiquidity)}`}

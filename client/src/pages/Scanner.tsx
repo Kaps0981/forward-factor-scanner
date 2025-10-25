@@ -55,6 +55,8 @@ export default function Scanner() {
       minMarketCap?: number;
       maxMarketCap?: number;
       strategyType?: '30-90' | '60-90';
+      dteStrategy?: '30-90' | '30-60' | '60-90' | 'all';
+      ffCalculationMode?: 'raw' | 'ex-earnings';
     }) => {
       const tickersToScan = params.tickers || [];
       const totalTickers = tickersToScan.length > 0 ? Math.min(tickersToScan.length, 30) : 30;
@@ -94,6 +96,8 @@ export default function Scanner() {
           min_market_cap: params.minMarketCap,
           max_market_cap: params.maxMarketCap,
           strategy_type: params.strategyType,
+          dte_strategy: params.dteStrategy,
+          ff_calculation_mode: params.ffCalculationMode,
         });
 
         let data: ScanResponse;
@@ -143,6 +147,8 @@ export default function Scanner() {
     minMarketCap?: number;
     maxMarketCap?: number;
     strategyType?: '30-90' | '60-90';
+    dteStrategy?: '30-90' | '30-60' | '60-90' | 'all';
+    ffCalculationMode?: 'raw' | 'ex-earnings';
   }) => {
     scanMutation.mutate(params);
   };
@@ -174,6 +180,8 @@ export default function Scanner() {
       "quality_score",
       "has_earnings_soon",
       "earnings_date",
+      "days_to_earnings",
+      "earnings_estimated",
       "fed_events",
       "event_warnings",
       "execution_warnings",
@@ -209,6 +217,8 @@ export default function Scanner() {
         opp.quality_score || "",
         opp.has_earnings_soon || false,
         opp.earnings_date || "",
+        opp.days_to_earnings?.toString() || "",
+        opp.earnings_estimated || false,
         `"${fedEvents}"`, // Quote since they may contain commas
         `"${eventWarnings}"`, // Quote since they may contain commas
         `"${executionWarnings}"`, // Quote execution warnings since they may contain commas

@@ -53,6 +53,15 @@ export const opportunitySchema = z.object({
   earnings_date: z.string().optional(),
   fed_events: z.array(z.string()).optional(),
   event_warnings: z.array(z.string()).optional(),
+  // DTE strategy field
+  dte_strategy: z.string().optional(),
+  // FF calculation mode fields
+  ff_calculation_mode: z.enum(['raw', 'ex-earnings']).optional(),
+  is_ex_earnings: z.boolean().optional(), // Flag to indicate if this FF was calculated ex-earnings
+  earnings_dte: z.number().optional(), // Days until earnings
+  // Additional earnings display fields
+  days_to_earnings: z.number().nullable().optional(), // Days to earnings for display
+  earnings_estimated: z.boolean().optional(), // Whether earnings date is estimated
 });
 
 export type Opportunity = z.infer<typeof opportunitySchema>;
@@ -67,6 +76,8 @@ export const scanRequestSchema = z.object({
   enable_email_alerts: z.boolean().optional(),
   strategy_type: z.enum(['30-90', '60-90']).optional(), // Strategy selection for quality filters
   max_monthly_trades: z.number().min(1).max(100).default(20).optional(), // Limit trades per month (default: 20 based on research)
+  dte_strategy: z.enum(['30-90', '30-60', '60-90', 'all']).optional().default('30-90'),
+  ff_calculation_mode: z.enum(['raw', 'ex-earnings']).optional().default('raw'),
 });
 
 export type ScanRequest = z.infer<typeof scanRequestSchema>;
@@ -169,6 +180,9 @@ export const opportunities = pgTable("opportunities", {
   meets_60_90_criteria: boolean("meets_60_90_criteria"),
   liquidity_rating: varchar("liquidity_rating", { length: 20 }),
   kelly_sizing_recommendation: varchar("kelly_sizing_recommendation", { length: 50 }),
+  // Additional earnings display fields
+  days_to_earnings: integer("days_to_earnings"),
+  earnings_estimated: boolean("earnings_estimated"),
 });
 
 export const insertOpportunitySchema = createInsertSchema(opportunities).omit({ id: true });

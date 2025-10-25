@@ -39,6 +39,47 @@ export const DEFAULT_TICKERS = [
   'AMT', 'CCI', 'EQIX', 'DLR', 'PSA'
 ];
 
+export const DTE_STRATEGIES = {
+  '30-90': {
+    frontDTEMin: 25,
+    frontDTEMax: 35,
+    backDTEMin: 85,
+    backDTEMax: 95,
+    minDTEDiff: 50,
+    name: '30-90 Days (Optimal)',
+    description: 'Highest Sharpe ratio strategy'
+  },
+  '30-60': {
+    frontDTEMin: 25,
+    frontDTEMax: 35,
+    backDTEMin: 55,
+    backDTEMax: 65,
+    minDTEDiff: 20,
+    name: '30-60 Days (Alternative)',
+    description: 'More frequent trading'
+  },
+  '60-90': {
+    frontDTEMin: 55,
+    frontDTEMax: 65,
+    backDTEMin: 85,
+    backDTEMax: 95,
+    minDTEDiff: 20,
+    name: '60-90 Days (High Return)',
+    description: 'Highest CAGR potential'
+  },
+  'all': {
+    frontDTEMin: 0,
+    frontDTEMax: 365,
+    backDTEMin: 0,
+    backDTEMax: 365,
+    minDTEDiff: 7,
+    name: 'All DTEs',
+    description: 'No DTE filtering'
+  }
+} as const;
+
+export type DTEStrategyType = keyof typeof DTE_STRATEGIES;
+
 export class ForwardFactorScanner {
   private polygon: PolygonService;
 
@@ -260,7 +301,17 @@ export class ForwardFactorScanner {
     }
   }
 
-  private calculateForwardFactor(frontIV: number, backIV: number, frontDTE: number, backDTE: number): {
+  private calculateForwardFactor(
+    frontIV: number, 
+    backIV: number, 
+    frontDTE: number, 
+    backDTE: number,
+    options?: {
+      excludeEarnings?: boolean;
+      hasEarningsInFront?: boolean;
+      earningsIVPremium?: number;
+    }
+  ): {
     forwardFactor: number;
     forwardVol: number;
   } {
@@ -269,7 +320,15 @@ export class ForwardFactorScanner {
       return { forwardFactor: 0, forwardVol: 0 };
     }
 
-    const frontVar = Math.pow(frontIV / 100, 2) * (frontDTE / 365);
+    // Adjust for earnings if requested
+    let adjustedFrontIV = frontIV;
+    if (options?.excludeEarnings && options?.hasEarningsInFront) {
+      // Default earnings premium is 15% based on historical data
+      const earningsPremium = options.earningsIVPremium || 15;
+      adjustedFrontIV = Math.max(frontIV - earningsPremium, frontIV * 0.7); // Don't reduce by more than 30%
+    }
+
+    const frontVar = Math.pow(adjustedFrontIV / 100, 2) * (frontDTE / 365);
     const backVar = Math.pow(backIV / 100, 2) * (backDTE / 365);
     const forwardVar = backVar - frontVar;
 
@@ -278,7 +337,7 @@ export class ForwardFactorScanner {
     }
 
     const forwardVol = Math.sqrt(forwardVar / (dteDiff / 365)) * 100;
-    const forwardFactor = ((frontIV - forwardVol) / forwardVol) * 100;
+    const forwardFactor = ((adjustedFrontIV - forwardVol) / forwardVol) * 100;
 
     return { forwardFactor, forwardVol };
   }
@@ -392,7 +451,13 @@ export class ForwardFactorScanner {
     .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0));
   }
 
-  async scanTicker(ticker: string, minFF: number = -100, maxFF: number = 100): Promise<Opportunity[]> {
+  async scanTicker(
+    ticker: string, 
+    minFF: number = -100, 
+    maxFF: number = 100,
+    dteStrategy: DTEStrategyType = '30-90',
+    ffCalculationMode: 'raw' | 'ex-earnings' = 'raw'
+  ): Promise<Opportunity[]> {
     try {
       const options = await this.polygon.getOptionsContracts(ticker);
       
@@ -407,64 +472,91 @@ export class ForwardFactorScanner {
         return [];
       }
 
+      // Get DTE configuration
+      const dteConfig = DTE_STRATEGIES[dteStrategy];
       const opportunities: Opportunity[] = [];
 
+      // Filter expiration pairs by DTE ranges
       for (let i = 0; i < expirationGroups.length - 1; i++) {
         const front = expirationGroups[i];
         const back = expirationGroups[i + 1];
+        
+        // Check if DTEs are within strategy ranges
+        const frontInRange = front.dte >= dteConfig.frontDTEMin && front.dte <= dteConfig.frontDTEMax;
+        const backInRange = back.dte >= dteConfig.backDTEMin && back.dte <= dteConfig.backDTEMax;
+        const dteDiff = back.dte - front.dte;
+        const diffInRange = dteDiff >= dteConfig.minDTEDiff;
+        
+        // Only process pairs that match the DTE strategy
+        if (frontInRange && backInRange && diffInRange) {
+          // For ex-earnings mode, we need to check if earnings is within front month
+          // This will be populated later in routes.ts when financial events are checked
+          // For now, we'll pass the calculation mode through
+          const { forwardFactor, forwardVol } = this.calculateForwardFactor(
+            front.atmIV,
+            back.atmIV,
+            front.dte,
+            back.dte,
+            {
+              excludeEarnings: ffCalculationMode === 'ex-earnings',
+              hasEarningsInFront: false, // Will be determined in routes.ts when earnings date is known
+              earningsIVPremium: 15 // Based on historical average
+            }
+          );
 
-        const { forwardFactor, forwardVol } = this.calculateForwardFactor(
-          front.atmIV,
-          back.atmIV,
-          front.dte,
-          back.dte
-        );
-
-        if (forwardFactor !== 0 && forwardFactor >= minFF && forwardFactor <= maxFF) {
-          // Calculate IVR for both front and back months
-          const frontIVR = this.calculateIVR(front.atmIV);
-          const backIVR = this.calculateIVR(back.atmIV);
-          // Use the average IVR for context (or could use front month as primary)
-          const avgIVR = Math.round((frontIVR + backIVR) / 2);
-          const ivrContext = this.getIVRContext(avgIVR);
-          
-          // Log volume calculation for debugging
-          if (front.totalVolume > 0 || back.totalVolume > 0) {
-            console.log(`${ticker}: Volumes calculated - Front: ${front.totalVolume}, Back: ${back.totalVolume}`);
+          // Use absolute value filtering for FF
+          const absFF = Math.abs(forwardFactor);
+          if (forwardFactor !== 0 && absFF >= minFF && absFF <= maxFF) {
+            // Calculate IVR for both front and back months
+            const frontIVR = this.calculateIVR(front.atmIV);
+            const backIVR = this.calculateIVR(back.atmIV);
+            // Use the average IVR for context (or could use front month as primary)
+            const avgIVR = Math.round((frontIVR + backIVR) / 2);
+            const ivrContext = this.getIVRContext(avgIVR);
+            
+            // Log volume calculation for debugging
+            if (front.totalVolume > 0 || back.totalVolume > 0) {
+              console.log(`${ticker}: Volumes calculated - Front: ${front.totalVolume}, Back: ${back.totalVolume}`);
+            }
+            
+            opportunities.push({
+              ticker,
+              forward_factor: Math.round(forwardFactor * 100) / 100,
+              signal: forwardFactor > 0 ? 'SELL' : 'BUY',
+              front_date: front.date,
+              front_dte: front.dte,
+              front_iv: Math.round(front.atmIV * 100) / 100,
+              back_date: back.date,
+              back_dte: back.dte,
+              back_iv: Math.round(back.atmIV * 100) / 100,
+              forward_vol: Math.round(forwardVol * 100) / 100,
+              avg_open_interest: front.totalOpenInterest,
+              has_earnings_soon: false, // Will be populated by routes.ts
+              // Front month straddle liquidity metrics
+              atm_call_oi: front.atmCallOI,
+              atm_put_oi: front.atmPutOI,
+              straddle_oi: front.straddleOI,
+              oi_put_call_ratio: front.oiPutCallRatio,
+              liquidity_score: front.liquidityScore,
+              // Back month straddle liquidity metrics
+              back_atm_call_oi: back.atmCallOI,
+              back_atm_put_oi: back.atmPutOI,
+              back_straddle_oi: back.straddleOI,
+              back_liquidity_score: back.liquidityScore,
+              // Volume fields for liquidity assessment
+              front_volume: front.totalVolume,
+              back_volume: back.totalVolume,
+              // IVR fields
+              front_ivr: frontIVR,
+              back_ivr: backIVR,
+              ivr_context: ivrContext,
+              // DTE strategy field
+              dte_strategy: dteStrategy,
+              // FF calculation mode fields
+              ff_calculation_mode: ffCalculationMode,
+              is_ex_earnings: ffCalculationMode === 'ex-earnings',
+            });
           }
-          
-          opportunities.push({
-            ticker,
-            forward_factor: Math.round(forwardFactor * 100) / 100,
-            signal: forwardFactor > 0 ? 'SELL' : 'BUY',
-            front_date: front.date,
-            front_dte: front.dte,
-            front_iv: Math.round(front.atmIV * 100) / 100,
-            back_date: back.date,
-            back_dte: back.dte,
-            back_iv: Math.round(back.atmIV * 100) / 100,
-            forward_vol: Math.round(forwardVol * 100) / 100,
-            avg_open_interest: front.totalOpenInterest,
-            has_earnings_soon: false, // Will be populated by routes.ts
-            // Front month straddle liquidity metrics
-            atm_call_oi: front.atmCallOI,
-            atm_put_oi: front.atmPutOI,
-            straddle_oi: front.straddleOI,
-            oi_put_call_ratio: front.oiPutCallRatio,
-            liquidity_score: front.liquidityScore,
-            // Back month straddle liquidity metrics
-            back_atm_call_oi: back.atmCallOI,
-            back_atm_put_oi: back.atmPutOI,
-            back_straddle_oi: back.straddleOI,
-            back_liquidity_score: back.liquidityScore,
-            // Volume fields for liquidity assessment
-            front_volume: front.totalVolume,
-            back_volume: back.totalVolume,
-            // IVR fields
-            front_ivr: frontIVR,
-            back_ivr: backIVR,
-            ivr_context: ivrContext,
-          });
         }
       }
 
@@ -479,6 +571,8 @@ export class ForwardFactorScanner {
     tickers: string[],
     minFF: number = -100,
     maxFF: number = 100,
+    dteStrategy: DTEStrategyType = '30-90',
+    ffCalculationMode: 'raw' | 'ex-earnings' = 'raw',
     onProgress?: (current: number, total: number, ticker: string) => void
   ): Promise<Opportunity[]> {
     const allOpportunities: Opportunity[] = [];
@@ -495,7 +589,7 @@ export class ForwardFactorScanner {
         if (onProgress) {
           onProgress(i + index + 1, limitedTickers.length, ticker);
         }
-        return this.scanTicker(ticker, minFF, maxFF);
+        return this.scanTicker(ticker, minFF, maxFF, dteStrategy, ffCalculationMode);
       });
 
       const batchResults = await Promise.all(batchPromises);

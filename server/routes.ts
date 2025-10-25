@@ -1008,7 +1008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts, strategy_type, max_monthly_trades } = validationResult.data;
+      const { tickers, min_ff, max_ff, top_n, min_open_interest, enable_email_alerts, strategy_type, max_monthly_trades, dte_strategy, ff_calculation_mode } = validationResult.data;
       
       // Check if we should use market cap filtering
       const useMarketCap = req.body.use_market_cap === true;
@@ -1042,6 +1042,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tickersToScan.slice(0, 30),
         minFF,
         maxFF,
+        dte_strategy || '30-90',
+        ff_calculation_mode || 'raw',
         (current, total, ticker) => {
           console.log(`Scanning progress: ${ticker} (${current}/${total})`);
         }
@@ -1084,11 +1086,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Add earnings flag and other analysis to opportunities
       const opportunitiesWithAnalysis = opportunitiesWithEvents.map(opp => {
+        // Calculate days to earnings
+        const today = new Date();
+        let daysToEarnings: number | null = null;
+        let earningsEstimated = false;
+        
+        if (opp.earnings_date && opp.earnings_date !== null) {
+          const earningsDate = new Date(opp.earnings_date);
+          daysToEarnings = Math.ceil((earningsDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+          // Assume all earnings dates are estimated for now (could be improved with API data)
+          earningsEstimated = true;
+        }
+        
         const oppWithEarnings = {
           ...opp,
           has_earnings_soon: earningsMap.get(opp.ticker) || false,
           // Convert null to undefined for earnings_date
           earnings_date: opp.earnings_date === null ? undefined : opp.earnings_date,
+          days_to_earnings: daysToEarnings,
+          earnings_estimated: earningsEstimated,
         };
         
         // Run additional quality analysis (for probability and risk/reward)
@@ -1202,6 +1218,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           meets_60_90_criteria: opp.meets_60_90_criteria,
           liquidity_rating: opp.liquidity_rating,
           kelly_sizing_recommendation: opp.kelly_sizing_recommendation,
+          // Additional earnings display fields
+          days_to_earnings: opp.days_to_earnings || null,
+          earnings_estimated: opp.earnings_estimated || false,
         }));
         
         await storage.createOpportunities(opportunityRecords);

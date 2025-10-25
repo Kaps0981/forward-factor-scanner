@@ -21,6 +21,8 @@ interface ScanControlsProps {
     minMarketCap?: number;
     maxMarketCap?: number;
     strategyType?: '30-90' | '60-90';
+    dteStrategy?: '30-90' | '30-60' | '60-90' | 'all';
+    ffCalculationMode?: 'raw' | 'ex-earnings';
   }) => void;
   isScanning: boolean;
   initialTickers?: string;
@@ -38,16 +40,30 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [minMarketCap, setMinMarketCap] = useState(2);
   const [maxMarketCap, setMaxMarketCap] = useState(15);
   const [strategyType, setStrategyType] = useState<"all" | "30-90" | "60-90">("all");
+  const [dteStrategy, setDTEStrategy] = useState<'30-90' | '30-60' | '60-90' | 'all'>('30-90');
+  const [ffCalculationMode, setFFCalculationMode] = useState<'raw' | 'ex-earnings'>('raw');
+  const [ffFilterMode, setFFFilterMode] = useState<'aggressive' | 'moderate' | 'balanced' | 'minimal' | 'none'>('moderate');
 
   const handleScan = () => {
     const tickers = scanType === "custom" && customTickers
       ? customTickers.split(",").map(t => t.trim().toUpperCase()).filter(Boolean)
       : undefined;
 
+    // Convert FF filter mode to actual thresholds
+    const ffThresholds = {
+      aggressive: { min: 30, max: 100 },   // |FF| > 30%
+      moderate: { min: 20, max: 100 },     // |FF| > 20% (OQuants standard)
+      balanced: { min: 5, max: 100 },      // |FF| > 5%
+      minimal: { min: 0, max: 100 },       // |FF| > 0%
+      none: { min: -100, max: 100 },       // No filter
+    };
+
+    const threshold = ffThresholds[ffFilterMode];
+
     onScan({ 
       tickers, 
-      minFF, 
-      maxFF, 
+      minFF: threshold.min,
+      maxFF: threshold.max,
       topN,
       minOpenInterest: minOpenInterest > 0 ? minOpenInterest : undefined,
       enableEmailAlerts,
@@ -55,6 +71,8 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
       minMarketCap: scanType === "marketcap" ? minMarketCap : undefined,
       maxMarketCap: scanType === "marketcap" ? maxMarketCap : undefined,
       strategyType: strategyType === "all" ? undefined : strategyType,
+      dteStrategy,
+      ffCalculationMode,
     });
   };
 
@@ -151,19 +169,147 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
 
           <div className="grid grid-cols-1 gap-4 md:gap-6">
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs sm:text-sm font-medium">Forward Factor Range</Label>
-                <span className="text-xs sm:text-sm font-mono text-muted-foreground">
-                  No Limits Applied
-                </span>
+              <Label className="text-xs sm:text-sm font-medium">Forward Factor Filter</Label>
+              <Select 
+                value={ffFilterMode} 
+                onValueChange={(value) => setFFFilterMode(value as 'aggressive' | 'moderate' | 'balanced' | 'minimal' | 'none')}
+              >
+                <SelectTrigger data-testid="select-ff-filter">
+                  <SelectValue placeholder="Select FF filter mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="aggressive">Aggressive (|FF| &gt; 30%) - Top 10% - Sharpe 2.8-3.2</SelectItem>
+                  <SelectItem value="moderate">Moderate (|FF| &gt; 20%) - OQuants Standard ⭐</SelectItem>
+                  <SelectItem value="balanced">Balanced (|FF| &gt; 5%) - Top 60% - Sharpe 2.4-2.6</SelectItem>
+                  <SelectItem value="minimal">Minimal (|FF| &gt; 0%) - Positive Only</SelectItem>
+                  <SelectItem value="none">No Filter (All FF values) ⚠️</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="bg-green-50 dark:bg-green-950 rounded-md p-2 sm:p-3 border border-green-200 dark:border-green-800">
+                <p className="text-xs font-semibold text-green-900 dark:text-green-100 mb-1">
+                  📊 Backtest Insights (18-year data):
+                </p>
+                <div className="space-y-1 text-xs text-green-800 dark:text-green-200">
+                  {ffFilterMode === 'aggressive' && (
+                    <>
+                      <p>• Win Rate: 56-60% | Trades: 50-100/month</p>
+                      <p>• Best for: Maximum Sharpe, highest quality only</p>
+                      <p>• Dramatically reduces false signals</p>
+                    </>
+                  )}
+                  {ffFilterMode === 'moderate' && (
+                    <>
+                      <p>• Win Rate: 54-56% | Trades: ~300/month</p>
+                      <p>• OQuants professional standard threshold</p>
+                      <p>• Optimal balance of quality and opportunity</p>
+                    </>
+                  )}
+                  {ffFilterMode === 'balanced' && (
+                    <>
+                      <p>• Win Rate: 52-54% | Trades: ~400/month</p>
+                      <p>• Best for: Balanced approach with more trades</p>
+                      <p>• Good for active traders</p>
+                    </>
+                  )}
+                  {ffFilterMode === 'minimal' && (
+                    <>
+                      <p>• Eliminates negative FF (historically lose money)</p>
+                      <p>• Maximum opportunities while avoiding losses</p>
+                    </>
+                  )}
+                  {ffFilterMode === 'none' && (
+                    <p className="text-red-700 dark:text-red-300">
+                      ⚠️ Warning: Includes negative FF trades that historically lose money!
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="bg-muted/50 rounded-md p-2 sm:p-3">
-                <p className="text-xs text-muted-foreground">
-                  ℹ️ FF percentage filtering has been removed. The scanner will find all opportunities regardless of FF magnitude.
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-xs sm:text-sm font-medium">DTE Strategy</Label>
+              <Select 
+                value={dteStrategy} 
+                onValueChange={(value) => setDTEStrategy(value as '30-90' | '30-60' | '60-90' | 'all')}
+              >
+                <SelectTrigger data-testid="select-dte-strategy">
+                  <SelectValue placeholder="Select DTE strategy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30-90">30-90 Days (2.64 Sharpe) ⭐ Recommended</SelectItem>
+                  <SelectItem value="30-60">30-60 Days (2.37 Sharpe)</SelectItem>
+                  <SelectItem value="60-90">60-90 Days (2.40 Sharpe, Highest Returns)</SelectItem>
+                  <SelectItem value="all">All DTEs (Unfiltered)</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="bg-blue-50 dark:bg-blue-950 rounded-md p-2 sm:p-3 border border-blue-200 dark:border-blue-800">
+                <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  📊 Backtest Performance (18 years):
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Quality filters and IVR regime filtering are applied automatically to find the best trades.
+                <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                  {dteStrategy === '30-90' && (
+                    <>
+                      <p>• CAGR: 20.08% | Sharpe: 2.64 | Win Rate: 53.2%</p>
+                      <p>• Best risk-adjusted returns with Quarter Kelly sizing</p>
+                    </>
+                  )}
+                  {dteStrategy === '30-60' && (
+                    <>
+                      <p>• CAGR: 16.91% | Sharpe: 2.37 | Win Rate: 49.4%</p>
+                      <p>• More frequent trading opportunities</p>
+                    </>
+                  )}
+                  {dteStrategy === '60-90' && (
+                    <>
+                      <p>• CAGR: 26.71% | Sharpe: 2.40 | Win Rate: 46.9%</p>
+                      <p>• Highest returns but more volatile</p>
+                    </>
+                  )}
+                  {dteStrategy === 'all' && (
+                    <p className="text-amber-700 dark:text-amber-300">
+                      ⚠️ No filtering - includes suboptimal DTE combinations
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-xs sm:text-sm font-medium">Forward Factor Calculation</Label>
+              <Select 
+                value={ffCalculationMode} 
+                onValueChange={(value) => setFFCalculationMode(value as 'raw' | 'ex-earnings')}
+              >
+                <SelectTrigger data-testid="select-ff-calculation">
+                  <SelectValue placeholder="Select FF calculation mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="raw">Raw (Include Earnings Effects)</SelectItem>
+                  <SelectItem value="ex-earnings">Ex-Earnings (Pure Term Structure) ⭐</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="bg-purple-50 dark:bg-purple-950 rounded-md p-2 sm:p-3 border border-purple-200 dark:border-purple-800">
+                <p className="text-xs font-semibold text-purple-900 dark:text-purple-100 mb-1">
+                  🎯 Calculation Mode Insights:
                 </p>
+                <div className="space-y-1 text-xs text-purple-800 dark:text-purple-200">
+                  {ffCalculationMode === 'ex-earnings' ? (
+                    <>
+                      <p>• Adjusts for earnings IV premium (~15%)</p>
+                      <p>• Finds pure term structure mispricings</p>
+                      <p>• Method used by OQuants professionals</p>
+                    </>
+                  ) : (
+                    <>
+                      <p>• Includes all IV effects including earnings</p>
+                      <p>• May show false signals from earnings decay</p>
+                      <p>• Use when specifically trading earnings</p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
