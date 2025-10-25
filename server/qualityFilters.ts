@@ -8,6 +8,169 @@ export interface QualityAnalysis {
   riskReward: number; // 2-5x
 }
 
+export interface LiquidityMetrics {
+  score: number; // 0-100
+  rating: 'VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
+  bidAskSpreadEstimate: number; // Estimated spread as % of mid
+  executionDifficulty: 'EASY' | 'MODERATE' | 'DIFFICULT' | 'VERY_DIFFICULT';
+  recommendedOrderType: 'MARKET' | 'LIMIT' | 'LIMIT_ONLY';
+  maxPositionSize: number;
+  warnings: string[];
+}
+
+/**
+ * Calculate dynamic liquidity score based on multiple factors
+ * Returns comprehensive liquidity analysis with actionable insights
+ */
+export function calculateDynamicLiquidityScore(
+  opp: Opportunity,
+  realTimeBidAsk?: { bid: number; ask: number; mid: number }
+): LiquidityMetrics {
+  const warnings: string[] = [];
+  let baseScore = 50; // Start at neutral
+  
+  // Factor 1: Open Interest (40% weight)
+  const straddleOI = opp.straddle_oi || 0;
+  const avgOI = opp.avg_open_interest || 0;
+  const effectiveOI = Math.max(straddleOI, avgOI);
+  
+  let oiScore = 0;
+  if (effectiveOI >= 5000) oiScore = 40;
+  else if (effectiveOI >= 2000) oiScore = 35;
+  else if (effectiveOI >= 1000) oiScore = 30;
+  else if (effectiveOI >= 500) oiScore = 25;
+  else if (effectiveOI >= 250) oiScore = 20;
+  else if (effectiveOI >= 100) oiScore = 15;
+  else if (effectiveOI >= 50) oiScore = 10;
+  else oiScore = 5;
+  
+  // Factor 2: Volume to OI Ratio (20% weight)
+  let volumeScore = 10; // Default if no volume data
+  if (opp.volume !== undefined && effectiveOI > 0) {
+    const volOIRatio = opp.volume / effectiveOI;
+    if (volOIRatio >= 0.5) volumeScore = 20;
+    else if (volOIRatio >= 0.3) volumeScore = 17;
+    else if (volOIRatio >= 0.2) volumeScore = 14;
+    else if (volOIRatio >= 0.1) volumeScore = 11;
+    else if (volOIRatio >= 0.05) volumeScore = 8;
+    else volumeScore = 5;
+  }
+  
+  // Factor 3: Put/Call Balance (15% weight)
+  let balanceScore = 7; // Default neutral
+  if (opp.oi_put_call_ratio !== undefined) {
+    const ratio = opp.oi_put_call_ratio;
+    // Ideal range is 0.7-1.5 (balanced market)
+    if (ratio >= 0.7 && ratio <= 1.5) balanceScore = 15;
+    else if (ratio >= 0.5 && ratio <= 2.0) balanceScore = 12;
+    else if (ratio >= 0.3 && ratio <= 3.0) balanceScore = 9;
+    else {
+      balanceScore = 5;
+      if (ratio > 3.0) warnings.push(`Extreme put skew (${ratio.toFixed(2)}) may indicate one-sided market`);
+      else warnings.push(`Extreme call skew (${ratio.toFixed(2)}) may indicate speculative bubble`);
+    }
+  }
+  
+  // Factor 4: Real-time Bid-Ask Spread (15% weight)
+  let spreadScore = 7; // Default if no real-time data
+  let estimatedSpread = 5.0; // Default 5% spread estimate
+  
+  if (realTimeBidAsk && realTimeBidAsk.mid > 0) {
+    const spreadPct = ((realTimeBidAsk.ask - realTimeBidAsk.bid) / realTimeBidAsk.mid) * 100;
+    estimatedSpread = spreadPct;
+    
+    if (spreadPct <= 2) spreadScore = 15;
+    else if (spreadPct <= 5) spreadScore = 12;
+    else if (spreadPct <= 10) spreadScore = 9;
+    else if (spreadPct <= 15) spreadScore = 6;
+    else if (spreadPct <= 20) spreadScore = 3;
+    else {
+      spreadScore = 0;
+      warnings.push(`Wide bid-ask spread (${spreadPct.toFixed(1)}%) will significantly impact execution`);
+    }
+  } else {
+    // Estimate spread based on OI
+    if (effectiveOI < 100) estimatedSpread = 20.0;
+    else if (effectiveOI < 250) estimatedSpread = 15.0;
+    else if (effectiveOI < 500) estimatedSpread = 10.0;
+    else if (effectiveOI < 1000) estimatedSpread = 7.0;
+    else if (effectiveOI < 2000) estimatedSpread = 5.0;
+    else estimatedSpread = 3.0;
+  }
+  
+  // Factor 5: Time to Expiration (10% weight)
+  let dteScore = 5;
+  if (opp.front_dte >= 21 && opp.front_dte <= 60) dteScore = 10; // Sweet spot
+  else if (opp.front_dte >= 14 && opp.front_dte <= 90) dteScore = 8;
+  else if (opp.front_dte >= 7 && opp.front_dte <= 120) dteScore = 6;
+  else if (opp.front_dte < 7) {
+    dteScore = 3;
+    warnings.push(`Very short DTE (${opp.front_dte}d) may have gamma risk and wide spreads`);
+  } else {
+    dteScore = 4;
+    warnings.push(`Long DTE (${opp.front_dte}d) may have lower liquidity`);
+  }
+  
+  // Calculate total score
+  const totalScore = oiScore + volumeScore + balanceScore + spreadScore + dteScore;
+  
+  // Determine rating
+  let rating: LiquidityMetrics['rating'];
+  if (totalScore >= 80) rating = 'VERY_HIGH';
+  else if (totalScore >= 65) rating = 'HIGH';
+  else if (totalScore >= 50) rating = 'MEDIUM';
+  else if (totalScore >= 35) rating = 'LOW';
+  else rating = 'VERY_LOW';
+  
+  // Determine execution difficulty
+  let executionDifficulty: LiquidityMetrics['executionDifficulty'];
+  if (totalScore >= 75 && estimatedSpread <= 5) executionDifficulty = 'EASY';
+  else if (totalScore >= 60 && estimatedSpread <= 10) executionDifficulty = 'MODERATE';
+  else if (totalScore >= 40 && estimatedSpread <= 15) executionDifficulty = 'DIFFICULT';
+  else executionDifficulty = 'VERY_DIFFICULT';
+  
+  // Recommend order type
+  let recommendedOrderType: LiquidityMetrics['recommendedOrderType'];
+  if (executionDifficulty === 'EASY' && estimatedSpread <= 3) {
+    recommendedOrderType = 'MARKET';
+  } else if (executionDifficulty === 'MODERATE' || estimatedSpread <= 10) {
+    recommendedOrderType = 'LIMIT';
+  } else {
+    recommendedOrderType = 'LIMIT_ONLY';
+    warnings.push('Use limit orders only - market orders will result in significant slippage');
+  }
+  
+  // Calculate max position size based on liquidity
+  const basePositionSize = calculatePositionSize(opp);
+  let liquidityMultiplier = 1.0;
+  
+  if (rating === 'VERY_HIGH') liquidityMultiplier = 1.5;
+  else if (rating === 'HIGH') liquidityMultiplier = 1.2;
+  else if (rating === 'MEDIUM') liquidityMultiplier = 1.0;
+  else if (rating === 'LOW') liquidityMultiplier = 0.5;
+  else liquidityMultiplier = 0.25;
+  
+  const maxPositionSize = Math.floor(basePositionSize * liquidityMultiplier);
+  
+  // Add specific warnings based on analysis
+  if (effectiveOI < 100) {
+    warnings.push('Critical: Very low open interest - consider avoiding this trade');
+  }
+  if (opp.front_dte < 7 && executionDifficulty !== 'EASY') {
+    warnings.push('Short DTE + poor liquidity = extreme execution risk');
+  }
+  
+  return {
+    score: totalScore,
+    rating,
+    bidAskSpreadEstimate: estimatedSpread,
+    executionDifficulty,
+    recommendedOrderType,
+    maxPositionSize,
+    warnings
+  };
+}
+
 /**
  * Calculate recommended position size based on minimum liquidity between front and back months
  * Returns number of contracts recommended (5-10% of smaller OI)
