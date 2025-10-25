@@ -585,10 +585,33 @@ export default function Scanner() {
           open={showPaperTradeDialog}
           onOpenChange={setShowPaperTradeDialog}
           opportunity={selectedOpportunity}
-          onConfirm={(data) => {
-            // Handle paper trade confirmation
-            console.log('Paper trade confirmed:', data);
-            setShowPaperTradeDialog(false);
+          onConfirm={async (data) => {
+            try {
+              // Create the paper trade
+              const response = await apiRequest('POST', '/api/paper-trades', {
+                opportunity: selectedOpportunity,
+                ...data
+              });
+              
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create paper trade');
+              }
+              
+              toast({
+                title: "Paper Trade Created",
+                description: `Successfully added ${selectedOpportunity.ticker} to paper trading`,
+              });
+              
+              setShowPaperTradeDialog(false);
+            } catch (error) {
+              console.error('Failed to create paper trade:', error);
+              toast({
+                title: "Failed to Create Paper Trade",
+                description: error instanceof Error ? error.message : 'Something went wrong',
+                variant: "destructive",
+              });
+            }
           }}
         />
       )}

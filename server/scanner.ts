@@ -40,14 +40,14 @@ export const DEFAULT_TICKERS = [
 ];
 
 export const DTE_STRATEGIES = {
-  '30-90': {
-    frontDTEMin: 25,
-    frontDTEMax: 35,
-    backDTEMin: 85,
-    backDTEMax: 95,
-    minDTEDiff: 50,
-    name: '30-90 Days (Optimal)',
-    description: 'Highest Sharpe ratio strategy'
+  '20-30': {
+    frontDTEMin: 15,
+    frontDTEMax: 25,
+    backDTEMin: 25,
+    backDTEMax: 35,
+    minDTEDiff: 5,
+    name: '20-30 Days',
+    description: 'Short-term opportunities'
   },
   '30-60': {
     frontDTEMin: 25,
@@ -55,8 +55,17 @@ export const DTE_STRATEGIES = {
     backDTEMin: 55,
     backDTEMax: 65,
     minDTEDiff: 20,
-    name: '30-60 Days (Alternative)',
-    description: 'More frequent trading'
+    name: '30-60 Days (Default)',
+    description: 'Optimal balance for most traders'
+  },
+  '30-90': {
+    frontDTEMin: 25,
+    frontDTEMax: 35,
+    backDTEMin: 85,
+    backDTEMax: 95,
+    minDTEDiff: 50,
+    name: '30-90 Days',
+    description: 'Extended range strategy'
   },
   '60-90': {
     frontDTEMin: 55,
@@ -64,8 +73,17 @@ export const DTE_STRATEGIES = {
     backDTEMin: 85,
     backDTEMax: 95,
     minDTEDiff: 20,
-    name: '60-90 Days (High Return)',
-    description: 'Highest CAGR potential'
+    name: '60-90 Days',
+    description: 'Conservative approach'
+  },
+  '90-180': {
+    frontDTEMin: 85,
+    frontDTEMax: 95,
+    backDTEMin: 175,
+    backDTEMax: 185,
+    minDTEDiff: 80,
+    name: '90-180 Days',
+    description: 'Long-term opportunities'
   },
   'all': {
     frontDTEMin: 0,
@@ -73,8 +91,8 @@ export const DTE_STRATEGIES = {
     backDTEMin: 0,
     backDTEMax: 365,
     minDTEDiff: 7,
-    name: 'All DTEs',
-    description: 'No DTE filtering'
+    name: 'No Filter',
+    description: 'No DTE filtering applied'
   }
 } as const;
 

@@ -23,7 +23,7 @@ interface ScanControlsProps {
     minMarketCap?: number;
     maxMarketCap?: number;
     strategyType?: '30-90' | '60-90';
-    dteStrategy?: '30-90' | '30-60' | '60-90' | 'all';
+    dteStrategy?: '20-30' | '30-60' | '60-90' | '90-180' | '30-90' | 'all';
     ffCalculationMode?: 'raw' | 'ex-earnings';
   }) => void;
   isScanning: boolean;
@@ -42,7 +42,7 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
   const [minMarketCap, setMinMarketCap] = useState(2);
   const [maxMarketCap, setMaxMarketCap] = useState(15);
   const [strategyType, setStrategyType] = useState<"all" | "30-90" | "60-90">("all");
-  const [dteStrategy, setDTEStrategy] = useState<'30-90' | '30-60' | '60-90' | 'all'>('30-60');
+  const [dteStrategy, setDTEStrategy] = useState<'20-30' | '30-60' | '60-90' | '90-180' | '30-90' | 'all'>('30-60');
   const [ffCalculationMode, setFFCalculationMode] = useState<'raw' | 'ex-earnings'>('raw');
   const [ffFilterMode, setFFFilterMode] = useState<'aggressive' | 'moderate' | 'balanced' | 'minimal' | 'none'>('moderate');
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
@@ -246,16 +246,18 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
               <Label className="text-xs sm:text-sm font-medium">DTE Strategy</Label>
               <Select 
                 value={dteStrategy} 
-                onValueChange={(value) => setDTEStrategy(value as '30-90' | '30-60' | '60-90' | 'all')}
+                onValueChange={(value) => setDTEStrategy(value as '20-30' | '30-60' | '60-90' | '90-180' | '30-90' | 'all')}
               >
                 <SelectTrigger data-testid="select-dte-strategy">
                   <SelectValue placeholder="Select DTE strategy" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="30-90">30-90 Days (2.64 Sharpe)</SelectItem>
-                  <SelectItem value="30-60">30-60 Days (2.37 Sharpe) ⭐ Recommended</SelectItem>
-                  <SelectItem value="60-90">60-90 Days (2.40 Sharpe, Highest Returns)</SelectItem>
-                  <SelectItem value="all">All DTEs (Unfiltered)</SelectItem>
+                  <SelectItem value="all">No Filter</SelectItem>
+                  <SelectItem value="20-30">20-30 Days</SelectItem>
+                  <SelectItem value="30-60">30-60 Days ⭐ Default</SelectItem>
+                  <SelectItem value="30-90">30-90 Days</SelectItem>
+                  <SelectItem value="60-90">60-90 Days</SelectItem>
+                  <SelectItem value="90-180">90-180 Days</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -264,27 +266,43 @@ export function ScanControls({ onScan, isScanning, initialTickers, watchlistName
                   📊 Backtest Performance (18 years):
                 </p>
                 <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
-                  {dteStrategy === '30-90' && (
+                  {dteStrategy === '20-30' && (
                     <>
-                      <p>• CAGR: 20.08% | Sharpe: 2.64 | Win Rate: 53.2%</p>
-                      <p>• Best risk-adjusted returns with Quarter Kelly sizing</p>
+                      <p>• Short-term opportunities (20-30 days to expiration)</p>
+                      <p>• Higher gamma risk, quick theta decay</p>
                     </>
                   )}
                   {dteStrategy === '30-60' && (
                     <>
+                      <p>• Default recommended range - optimal balance</p>
                       <p>• CAGR: 16.91% | Sharpe: 2.37 | Win Rate: 49.4%</p>
-                      <p>• More frequent trading opportunities</p>
+                      <p>• Best for most traders</p>
+                    </>
+                  )}
+                  {dteStrategy === '30-90' && (
+                    <>
+                      <p>• Extended range (30-90 days to expiration)</p>
+                      <p>• CAGR: 20.08% | Sharpe: 2.64 | Win Rate: 53.2%</p>
+                      <p>• Best risk-adjusted returns</p>
                     </>
                   )}
                   {dteStrategy === '60-90' && (
                     <>
+                      <p>• Conservative approach (60-90 days to expiration)</p>
                       <p>• CAGR: 26.71% | Sharpe: 2.40 | Win Rate: 46.9%</p>
-                      <p>• Highest returns but more volatile</p>
+                      <p>• Lower theta decay, more time for adjustments</p>
+                    </>
+                  )}
+                  {dteStrategy === '90-180' && (
+                    <>
+                      <p>• Long-term opportunities (90-180 days to expiration)</p>
+                      <p>• Minimal theta decay, lower volatility risk</p>
+                      <p>• Fewer opportunities but more stable</p>
                     </>
                   )}
                   {dteStrategy === 'all' && (
                     <p className="text-amber-700 dark:text-amber-300">
-                      ⚠️ No filtering - includes suboptimal DTE combinations
+                      ⚠️ No DTE filtering - includes all expiration combinations
                     </p>
                   )}
                 </div>
