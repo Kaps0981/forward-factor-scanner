@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "drizzle-orm";
-import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, integer, decimal, jsonb, doublePrecision, boolean, index, date, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
 // Scanner opportunity result from Forward Factor analysis
@@ -436,3 +436,87 @@ export const users = pgTable("users", {
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+
+// Performance tracking tables
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: serial("id").primaryKey(),
+  paper_trade_id: integer("paper_trade_id").references(() => paperTrades.id),
+  metric_date: date("metric_date").notNull(),
+  daily_pnl: real("daily_pnl"),
+  cumulative_pnl: real("cumulative_pnl"),
+  win_rate: real("win_rate"),
+  avg_win: real("avg_win"),
+  avg_loss: real("avg_loss"),
+  sharpe_ratio: real("sharpe_ratio"),
+  max_drawdown: real("max_drawdown"),
+  trades_closed_today: integer("trades_closed_today").default(0),
+  trades_opened_today: integer("trades_opened_today").default(0),
+  created_at: timestamp("created_at").defaultNow()
+});
+
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).omit({
+  id: true,
+  created_at: true
+});
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+
+// Live spread tracking table
+export const liveSpreads = pgTable("live_spreads", {
+  id: serial("id").primaryKey(),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  expiration: date("expiration").notNull(),
+  strike: real("strike").notNull(),
+  option_type: varchar("option_type", { length: 4 }).notNull(), // 'CALL' or 'PUT'
+  bid: real("bid"),
+  ask: real("ask"),
+  mid: real("mid"),
+  spread: real("spread"), // ask - bid
+  spread_pct: real("spread_pct"), // spread as % of mid
+  volume: integer("volume"),
+  open_interest: integer("open_interest"),
+  iv: real("iv"),
+  delta: real("delta"),
+  gamma: real("gamma"),
+  theta: real("theta"),
+  vega: real("vega"),
+  timestamp: timestamp("timestamp").defaultNow()
+});
+
+export const insertLiveSpreadSchema = createInsertSchema(liveSpreads).omit({
+  id: true,
+  timestamp: true
+});
+export type InsertLiveSpread = z.infer<typeof insertLiveSpreadSchema>;
+export type LiveSpread = typeof liveSpreads.$inferSelect;
+
+// Trade outcome tracking
+export const tradeOutcomes = pgTable("trade_outcomes", {
+  id: serial("id").primaryKey(),
+  paper_trade_id: integer("paper_trade_id").references(() => paperTrades.id),
+  ticker: varchar("ticker", { length: 10 }).notNull(),
+  signal: varchar("signal", { length: 10 }).notNull(),
+  entry_date: date("entry_date").notNull(),
+  exit_date: date("exit_date"),
+  entry_ff: real("entry_ff").notNull(),
+  exit_ff: real("exit_ff"),
+  entry_price: real("entry_price").notNull(),
+  exit_price: real("exit_price"),
+  realized_pnl: real("realized_pnl"),
+  realized_pnl_pct: real("realized_pnl_pct"),
+  max_profit: real("max_profit"),
+  max_loss: real("max_loss"),
+  days_held: integer("days_held"),
+  exit_reason: varchar("exit_reason", { length: 50 }), // 'STOP_LOSS', 'TAKE_PROFIT', 'EXPIRY', 'MANUAL'
+  quality_score_at_entry: integer("quality_score_at_entry"),
+  liquidity_score_at_entry: integer("liquidity_score_at_entry"),
+  notes: text("notes"),
+  created_at: timestamp("created_at").defaultNow()
+});
+
+export const insertTradeOutcomeSchema = createInsertSchema(tradeOutcomes).omit({
+  id: true,
+  created_at: true
+});
+export type InsertTradeOutcome = z.infer<typeof insertTradeOutcomeSchema>;
+export type TradeOutcome = typeof tradeOutcomes.$inferSelect;
