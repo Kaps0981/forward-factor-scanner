@@ -929,15 +929,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payoff calculation endpoint
-  app.post("/api/payoff-analysis", (req, res) => {
+  app.post("/api/payoff-analysis", async (req, res) => {
     try {
       const opportunity = req.body.opportunity;
-      const currentStockPrice = req.body.currentStockPrice;
+      let currentStockPrice = req.body.currentStockPrice;
       
       if (!opportunity) {
         return res.status(400).json({
           error: "Opportunity data is required",
         });
+      }
+
+      // If stock price not provided, fetch it from Polygon
+      if (!currentStockPrice && POLYGON_API_KEY && opportunity.ticker) {
+        const polygonService = new PolygonService(POLYGON_API_KEY);
+        currentStockPrice = await polygonService.getLastQuote(opportunity.ticker);
+        console.log(`Fetched actual stock price for ${opportunity.ticker}: $${currentStockPrice}`);
       }
 
       const calculator = new PayoffCalculator();

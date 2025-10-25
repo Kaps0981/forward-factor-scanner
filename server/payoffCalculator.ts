@@ -232,28 +232,13 @@ export class PayoffCalculator {
 
   /**
    * Estimate current stock price from option data
-   * In real trading, we'd use actual stock price, but for demo we estimate
+   * This is a fallback - actual stock price should be passed from scanner or routes
    */
   private estimateStockPrice(opportunity: Opportunity): number {
-    // Simple estimation based on typical option pricing patterns
-    // In production, we'd fetch actual stock price from Polygon
-    // For now, assume ATM strike is close to current price
-    
-    // Use a base price that makes sense for the IV levels
-    // Higher IV typically corresponds to higher priced stocks
-    const avgIV = (opportunity.front_iv + opportunity.back_iv) / 2;
-    
-    // Estimate stock price based on IV levels
-    // This is a rough approximation for demo purposes
-    if (avgIV > 100) {
-      return 150; // High volatility stocks (e.g., meme stocks)
-    } else if (avgIV > 60) {
-      return 250; // Medium-high volatility (e.g., tech stocks)
-    } else if (avgIV > 40) {
-      return 350; // Medium volatility (e.g., large cap tech)
-    } else {
-      return 450; // Low volatility (e.g., mega caps)
-    }
+    // Fallback estimation - should rarely be used
+    // In practice, stock price should always be passed explicitly
+    console.warn(`Using fallback stock price estimation for ${opportunity.ticker} - actual price should be provided`);
+    return 100; // Default fallback
   }
 
   /**
