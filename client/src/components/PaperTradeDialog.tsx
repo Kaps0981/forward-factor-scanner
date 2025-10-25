@@ -125,14 +125,15 @@ export function PaperTradeDialog({
     }
 
     if (payoffMetrics) {
+      // payoffMetrics.premium is already in dollars per contract (not per share)
       const entryPrice = payoffMetrics.premium;
-      const totalCost = entryPrice * quantity * 100; // Account for contract multiplier
-      const maxRisk = payoffMetrics.maxLoss * quantity * 100;
+      const totalCost = entryPrice * quantity; // Already includes contract multiplier
+      const maxRisk = payoffMetrics.maxLoss * quantity; // Already per-contract
       const maxProfit = payoffMetrics.maxProfit === 'Unlimited' 
         ? 'Unlimited'
         : typeof payoffMetrics.maxProfit === 'number'
-        ? payoffMetrics.maxProfit * quantity * 100
-        : parseFloat(payoffMetrics.maxProfit) * quantity * 100;
+        ? payoffMetrics.maxProfit * quantity
+        : parseFloat(payoffMetrics.maxProfit) * quantity;
       
       return { 
         estimatedCost: totalCost, 
@@ -313,7 +314,7 @@ export function PaperTradeDialog({
                 </p>
                 <p className="text-sm mt-1">
                   <span className="text-muted-foreground">Profit Probability:</span>
-                  <span className="ml-2 font-semibold">{(payoffMetrics.profitProbability * 100).toFixed(1)}%</span>
+                  <span className="ml-2 font-semibold">{payoffMetrics.profitProbability.toFixed(1)}%</span>
                 </p>
               </div>
             )}
