@@ -167,7 +167,7 @@ function QualityIndicator({ score }: { score: number }) {
   return (
     <div className={`flex items-center gap-1 ${getColor()}`}>
       <Activity className="h-4 w-4" />
-      <span className="font-medium">Q{Math.round(score / 10)}/10</span>
+      <span className="font-medium">Q{Math.round(score)}</span>
     </div>
   );
 }

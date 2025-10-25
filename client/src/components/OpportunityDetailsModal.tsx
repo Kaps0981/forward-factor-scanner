@@ -67,7 +67,7 @@ export function OpportunityDetailsModal({
               >
                 {opportunity.signal}
               </Badge>
-              {opportunity.quality_score && opportunity.quality_score >= 7 && (
+              {opportunity.quality_score && opportunity.quality_score >= 70 && (
                 <Badge variant="outline" className="border-yellow-500 text-yellow-600">
                   High Quality
                 </Badge>
@@ -104,7 +104,7 @@ export function OpportunityDetailsModal({
               <QuickStat
                 icon={<Shield className="h-4 w-4" />}
                 label="Quality Score"
-                value={`${opportunity.quality_score || 0}/10`}
+                value={`${opportunity.quality_score || 0}/100`}
               />
             </div>
             
